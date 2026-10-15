@@ -135,7 +135,7 @@ Make the dashboard readable on a phone too. Don't show children's data to anyone
 - Migrations in `supabase/migrations/`. Enable RLS on every table, with policies.
 - Parent sign-up and sign-in, child profile create/edit/delete, PIN hashing, the "Who's playing?" screen, and the parent gate.
 - Tests: RLS isolation between two parent accounts; the PIN is never stored in plain text; a child can't reach the dashboard without the parent gate.
-- 🔲 **Checkpoint 2:** show the migrations, policies and test results.
+- ✅ **Checkpoint 2:** show the migrations, policies and test results.
 
 ### Phase 3 — Connect the game to the backend
 - Load each child's `game_state` and backpack when they're picked. Save changes as they happen.

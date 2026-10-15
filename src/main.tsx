@@ -6,13 +6,25 @@ import "@fontsource/fredoka/500.css";
 import "@fontsource/fredoka/600.css";
 import "@fontsource/fredoka/700.css";
 import "./game/ui/game.css";
-import { LocalStore } from "./data/gameStore";
-import { Game } from "./game/ui/Game";
+import "./app/app.css";
+import { App } from "./app/App";
+import { SupabaseBackend } from "./data/supabaseBackend";
 
-const store = new LocalStore();
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const root = createRoot(document.getElementById("root")!);
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <Game store={store} />
-  </StrictMode>,
-);
+if (!url || !key) {
+  root.render(
+    <div className="screen">
+      <h1>Not set up yet</h1>
+      <p className="center">Copy .env.example to .env.local and fill in your Supabase URL and anon key, then restart.</p>
+    </div>,
+  );
+} else {
+  root.render(
+    <StrictMode>
+      <App backend={new SupabaseBackend(url, key)} />
+    </StrictMode>,
+  );
+}

@@ -49,11 +49,19 @@ const BAG_ICON =
   '<path d="M3.6 14h16.8" stroke="var(--panel)" stroke-width="2"/>' +
   '<rect x="9.6" y="15.4" width="4.8" height="4" rx="1.3" fill="var(--panel)"/>';
 
-export function Strip({ s, onQuests, onBag, bagRef }: {
-  s: EngineState; onQuests: () => void; onBag: () => void; bagRef: React.Ref<HTMLButtonElement>;
+/** Who's playing, and the way back to "Who's playing?" (app only; not in the reference). */
+export interface Player { name: string; avatar: string; onSwitch: () => void }
+
+export function Strip({ s, onQuests, onBag, bagRef, player }: {
+  s: EngineState; onQuests: () => void; onBag: () => void; bagRef: React.Ref<HTMLButtonElement>; player?: Player;
 }) {
   return (
     <div className="strip">
+      {player && (
+        <button className="chip-btn player-btn" aria-label={"Switch player (now " + player.name + ")"} onClick={player.onSwitch}>
+          <svg viewBox="0 0 200 200" aria-hidden="true" dangerouslySetInnerHTML={{ __html: BY_ID.get(player.avatar)?.svg ?? "" }} />
+        </button>
+      )}
       <span><b id="score">{s.scoreShown}</b> right</span>
       <span id="streakWrap" className={s.streakShown < 3 ? "hidden" : ""}>· <b id="streak">{s.streakShown}</b> in a row</span>
       <span className="spacer"></span>

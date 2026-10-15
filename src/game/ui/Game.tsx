@@ -4,10 +4,10 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { GameStore } from "../../data/gameStore";
 import type { QuestId } from "../logic/quests";
 import { GameDriver } from "./driver";
-import { Background, FixCard, Keypad, QuestBar, RewardView, Stage, Strip } from "./parts";
+import { Background, FixCard, Keypad, QuestBar, RewardView, Stage, Strip, type Player } from "./parts";
 import { BackpackPanel, QuestsPanel } from "./panels";
 
-export function Game({ store, timeZone }: { store: GameStore; timeZone?: string }) {
+export function Game({ store, timeZone, player }: { store: GameStore; timeZone?: string; player?: Player }) {
   const [driver] = useState(() => new GameDriver(store, timeZone));
   useSyncExternalStore(driver.subscribe, driver.getVersion);
   useEffect(() => driver.attach(), [driver]);
@@ -20,7 +20,7 @@ export function Game({ store, timeZone }: { store: GameStore; timeZone?: string 
     <>
       <Background s={s} />
       <div id="app" className={s.panel !== "none" ? "panel-open" : undefined}>
-        <Strip s={s} bagRef={bagRef}
+        <Strip s={s} bagRef={bagRef} player={player}
                onQuests={() => run((e) => e.togglePanel("quests"))}
                onBag={() => run((e) => e.togglePanel("bag"))} />
         <QuestBar s={s} onQuit={() => run((e) => e.quit())} />

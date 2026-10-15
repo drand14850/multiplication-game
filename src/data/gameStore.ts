@@ -9,11 +9,20 @@ export interface GameStore {
 
 const STORE_KEY = "times-tables-state";
 
-/** Phase 1: browser-only storage, same key and shape as the reference (minus `wins`). */
+/**
+ * Browser-only storage, same key and shape as the reference (minus `wins`).
+ * With a child id, each child gets their own key. Replaced by the server store in Phase 3.
+ */
 export class LocalStore implements GameStore {
+  private key: string;
+
+  constructor(childId?: string) {
+    this.key = childId ? STORE_KEY + ":" + childId : STORE_KEY;
+  }
+
   load(): Partial<Saved> | null {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
+      const raw = localStorage.getItem(this.key);
       return raw ? (JSON.parse(raw) as Partial<Saved>) : null;
     } catch {
       return null;
@@ -23,7 +32,7 @@ export class LocalStore implements GameStore {
   record(effect: Effect): void {
     if (effect.type !== "save") return;     // attempts/catches/quest runs are recorded from Phase 3
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(effect.snapshot));
+      localStorage.setItem(this.key, JSON.stringify(effect.snapshot));
     } catch { /* practice still works without saving */ }
   }
 }

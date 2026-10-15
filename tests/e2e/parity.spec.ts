@@ -117,7 +117,7 @@ test("port matches the reference at 390×780", async ({ browser }) => {
   const portCtx = await browser.newContext({ viewport: { width: 390, height: 780 }, baseURL: "http://localhost:4173" });
   await refCtx.route("**" + REF_PATH, (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: REF_HTML }));
   const ref = await session(await refCtx.newPage(), "http://localhost:4173" + REF_PATH, "ref", REACT_DRAWS_AT_LOAD);
-  const port = await session(await portCtx.newPage(), "/", "port", 0);
+  const port = await session(await portCtx.newPage(), "/parity.html", "port", 0);
 
   const results = STATES.map((s) => {
     const a = PNG.sync.read(readFileSync(OUT + `${s}-ref.png`));
