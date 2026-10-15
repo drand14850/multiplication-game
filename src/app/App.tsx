@@ -5,11 +5,11 @@
 //   signed in  → Who's playing? → (PIN) → Game
 //                Who's playing? → Grown-ups → ParentGate → ParentHome
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Backend, Child, ParentSettings, Session } from "../data/backend";
-import { LocalStore } from "../data/gameStore";
-import { Game } from "../game/ui/Game";
+import { WriteQueue } from "../data/writeQueue";
 import { AuthScreen } from "./AuthScreen";
+import { ChildGame } from "./ChildGame";
 import { errorText } from "./common";
 import { ParentGate } from "./ParentGate";
 import { ParentHome } from "./ParentHome";
@@ -52,6 +52,15 @@ export function App({ backend }: { backend: Backend }) {
   }, [backend]);
 
   const userId = session?.userId;
+
+  // One write queue per signed-in parent. It also sends anything left over from last time.
+  const queue = useMemo(() => (userId ? new WriteQueue({ sender: backend.sender(), owner: userId }) : null), [backend, userId]);
+  useEffect(() => {
+    if (!queue) return;
+    queue.start();
+    return () => queue.stop();
+  }, [queue]);
+
   useEffect(() => {
     if (!userId) return;
     let live = true;
@@ -100,9 +109,9 @@ export function App({ backend }: { backend: Backend }) {
     case "pin":
       return <PinEntry key={view.child.id} backend={backend} child={view.child} onOk={onPinOk} onBack={toWho} />;
     case "play":
-      return (
-        <Game key={view.child.id} store={new LocalStore(view.child.id)} timeZone={settings?.timeZone}
-              player={{ name: view.child.name, avatar: view.child.avatar, onSwitch: toWho }} />
+      return queue && (
+        <ChildGame key={view.child.id} backend={backend} queue={queue} child={view.child}
+                   timeZone={settings?.timeZone} onSwitch={toWho} />
       );
     case "gate":
       return <ParentGate backend={backend} onUnlock={() => setView({ kind: "parent" })} onBack={toWho} />;

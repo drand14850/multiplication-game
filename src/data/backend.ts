@@ -1,3 +1,5 @@
+import type { Sender } from "./writeQueue";
+
 // What the app needs from the server. SupabaseBackend is the real one; FakeBackend
 // (tests only) keeps everything in memory.
 
@@ -16,6 +18,14 @@ export interface ParentSettings {
 }
 
 export type PinResult = "ok" | "wrong" | "locked";
+
+/** What the server knows about a child's game. */
+export interface ServerChildState {
+  reviewPile: Record<string, number>;
+  caught: Record<string, number>;          // collectible id -> times caught
+  /** Mystery and Pick-a-Pet catches from the last two days, for the once-a-day rules. */
+  recentDaily: { collectibleId: string; source: "mystery" | "pick"; createdAt: string }[];
+}
 
 export interface Backend {
   getSession(): Promise<Session | null>;
@@ -36,7 +46,12 @@ export interface Backend {
 
   getSettings(): Promise<ParentSettings>;
   updateSettings(patch: Partial<ParentSettings>): Promise<void>;
+
+  loadChildState(childId: string): Promise<ServerChildState>;
+  /** Sends write-queue batches under the signed-in parent's account. */
+  sender(): Sender;
 }
+
 
 /** Errors shown to the parent, in plain words. */
 export class BackendError extends Error {}

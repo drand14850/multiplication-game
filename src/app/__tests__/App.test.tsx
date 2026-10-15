@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "fake-indexeddb/auto";
 // The app flow with an in-memory backend: sign-in, "Who's playing?", child PIN, and the parent gate.
 
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";

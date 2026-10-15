@@ -1,7 +1,8 @@
 // In-memory Backend for UI tests. Mirrors the server rules that matter to the UI
 // (password check, PIN lockout after 5 wrong tries). Never imported by the app.
 
-import { BackendError, type Backend, type Child, type ParentSettings, type PinResult, type Session } from "./backend";
+import { BackendError, type Backend, type Child, type ParentSettings, type PinResult, type ServerChildState, type Session } from "./backend";
+import type { Row, Sender, SendResult, Table } from "./writeQueue";
 
 export class FakeBackend implements Backend {
   session: Session | null = null;
@@ -69,4 +70,39 @@ export class FakeBackend implements Backend {
 
   async getSettings() { return { ...this.settings }; }
   async updateSettings(patch: Partial<ParentSettings>) { Object.assign(this.settings, patch); }
+
+  /* ---------- game data: an in-memory stand-in for the four tables ---------- */
+
+  rows: Record<Table, Map<string, Row>> = { quest_runs: new Map(), attempts: new Map(), catches: new Map(), game_state: new Map() };
+  /** When false, sends fail as if the network were down. */
+  online = true;
+
+  async loadChildState(childId: string): Promise<ServerChildState> {
+    if (!this.online) throw new BackendError("Failed to fetch");
+    const caught: Record<string, number> = {};
+    const recentDaily: ServerChildState["recentDaily"] = [];
+    for (const r of this.rows.catches.values()) {
+      if (r.child_id !== childId) continue;
+      const id = r.collectible_id as string;
+      caught[id] = (caught[id] || 0) + 1;
+      if (r.source === "mystery" || r.source === "pick") recentDaily.push({ collectibleId: id, source: r.source, createdAt: r.created_at as string });
+    }
+    const gs = this.rows.game_state.get(childId);
+    return { reviewPile: (gs?.review_pile as Record<string, number>) ?? {}, caught, recentDaily };
+  }
+
+  sender(): Sender {
+    return {
+      send: async (table: Table, rows: Row[]): Promise<SendResult> => {
+        if (!this.online) return { ok: false, retry: true, error: "Failed to fetch" };
+        for (const r of rows) {
+          const key = String(table === "game_state" ? r.child_id : r.id);
+          const ignoreDup = table === "attempts" || table === "catches";
+          if (ignoreDup && this.rows[table].has(key)) continue;
+          this.rows[table].set(key, { ...r });
+        }
+        return { ok: true };
+      },
+    };
+  }
 }

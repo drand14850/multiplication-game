@@ -141,7 +141,7 @@ Make the dashboard readable on a phone too. Don't show children's data to anyone
 - Load each child's `game_state` and backpack when they're picked. Save changes as they happen.
 - **Write queue:** attempts and catches go into a local queue (IndexedDB) and are sent in batches in the background. The game never waits on the network. The queue survives a page reload and retries when the device comes back online. Prevent duplicates with a client-generated UUID per row.
 - Test: play 20 problems with the network off in Playwright, turn it back on, and confirm exactly 20 attempts arrive.
-- 🔲 **Checkpoint 3:** demonstrate offline play and sync, and two children on the same device keeping separate progress.
+- ✅ **Checkpoint 3:** demonstrate offline play and sync, and two children on the same device keeping separate progress.
 
 ### Phase 4 — Parent dashboard
 - Build the views above from `attempts`, `quest_runs` and `catches`. Do the heavy queries in SQL (views or RPCs), not by downloading every row.

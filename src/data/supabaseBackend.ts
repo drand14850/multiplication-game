@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient, type Session as SbSession } from "@supabase/supabase-js";
-import { BackendError, type Backend, type Child, type ParentSettings, type PinResult, type Session } from "./backend";
+import { BackendError, type Backend, type Child, type ParentSettings, type PinResult, type ServerChildState, type Session } from "./backend";
+import type { Row, Sender, SendResult, Table } from "./writeQueue";
 
 interface ChildRow { id: string; name: string; avatar: string; has_pin: boolean }
 
@@ -100,6 +101,40 @@ export class SupabaseBackend implements Backend {
     fail(error);
     const r = data as { time_zone: string; fluency_ms: number };
     return { timeZone: r.time_zone, fluencyMs: r.fluency_ms };
+  }
+
+  async loadChildState(childId: string): Promise<ServerChildState> {
+    const since = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    const [gs, bp, daily] = await Promise.all([
+      this.sb.from("game_state").select("review_pile").eq("child_id", childId).maybeSingle(),
+      this.sb.from("backpack").select("collectible_id, n").eq("child_id", childId),
+      this.sb.from("catches").select("collectible_id, source, created_at").eq("child_id", childId)
+        .in("source", ["mystery", "pick"]).gte("created_at", since),
+    ]);
+    fail(gs.error); fail(bp.error); fail(daily.error);
+    const caught: Record<string, number> = {};
+    for (const r of (bp.data ?? []) as { collectible_id: string; n: number }[]) caught[r.collectible_id] = r.n;
+    return {
+      reviewPile: ((gs.data as { review_pile: Record<string, number> } | null)?.review_pile) ?? {},
+      caught,
+      recentDaily: ((daily.data ?? []) as { collectible_id: string; source: "mystery" | "pick"; created_at: string }[])
+        .map((r) => ({ collectibleId: r.collectible_id, source: r.source, createdAt: r.created_at })),
+    };
+  }
+
+  sender(): Sender {
+    return {
+      send: async (table: Table, rows: Row[]): Promise<SendResult> => {
+        const res = table === "attempts" || table === "catches"
+          ? await this.sb.from(table).upsert(rows, { onConflict: "id", ignoreDuplicates: true })
+          : await this.sb.from(table).upsert(rows, { onConflict: table === "game_state" ? "child_id" : "id" });
+        if (!res.error) return { ok: true };
+        // network trouble, server trouble, expired session or rate limit: try again later.
+        // Anything else (a once-a-day rule, a deleted child, bad data) will never succeed.
+        const retry = !res.status || res.status >= 500 || res.status === 401 || res.status === 408 || res.status === 429;
+        return { ok: false, retry, error: res.error.message };
+      },
+    };
   }
 
   async updateSettings(patch: Partial<ParentSettings>): Promise<void> {
