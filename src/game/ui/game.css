@@ -1,0 +1,337 @@
+/* Copied verbatim from reference/times-tables.html (L8–334). Do not edit; see the note at the bottom. */
+
+:root {
+  --deep:   #2B1D45;
+  --panel:  #3D2A5F;
+  --panel2: #4B3573;
+  --amber:  #FFC145;
+  --mint:   #6DE0A6;
+  --coral:  #FF7F6E;
+  --cream:  #FFF4E2;
+  --dim:    rgba(255,244,226,.55);
+  --font: "Fredoka", ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; height: 100%;
+  background: var(--deep);
+  color: var(--cream);
+  font-family: var(--font);
+  font-weight: 500;
+  overscroll-behavior: none;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 14px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---- the animal behind everything ---- */
+#bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 11vh;
+  pointer-events: none;
+}
+#bg svg {
+  width: min(74vw, 330px);
+  height: auto;
+  opacity: .24;
+  transition: opacity .3s ease;
+}
+#bg svg.enter { opacity: 0; }
+
+/* a rare one glows while it's on screen */
+#bg.rare svg { filter: drop-shadow(0 0 20px rgba(255,193,69,.6)); }
+#bg.rare svg:not(.enter) { animation: rareglow 2.6s ease-in-out infinite; }
+@keyframes rareglow {
+  0%, 100% { opacity: .26; }
+  50%      { opacity: .44; }
+}
+
+.rarity {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--amber);
+  letter-spacing: .04em;
+}
+
+/* ---- score strip ---- */
+.strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+  color: var(--dim);
+}
+.strip b { color: var(--cream); font-weight: 600; }
+.strip .spacer { flex: 1; }
+.chip-btn {
+  font: inherit; font-size: 14px;
+  color: var(--dim);
+  background: none;
+  border: 1.5px solid rgba(255,244,226,.25);
+  border-radius: 999px;
+  padding: 5px 13px;
+  cursor: pointer;
+}
+.chip-btn:hover { color: var(--cream); border-color: rgba(255,244,226,.5); }
+
+/* ---- backpack ---- */
+.bag {
+  display: flex; align-items: center; gap: 6px;
+  font: inherit; font-size: 14px; font-weight: 600;
+  color: var(--amber);
+  background: var(--panel);
+  border: none; border-radius: 999px;
+  padding: 6px 13px 6px 10px;
+  cursor: pointer;
+}
+.bag svg { width: 22px; height: 22px; display: block; }
+.bag.pop { animation: bagpop .5s ease; }
+@keyframes bagpop {
+  0%   { transform: scale(1) rotate(0deg); }
+  30%  { transform: scale(1.28) rotate(-6deg); }
+  60%  { transform: scale(1.05) rotate(4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.bag:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+
+.flyer {
+  position: fixed; z-index: 9; pointer-events: none; opacity: .75;
+  transition: transform .55s cubic-bezier(.5,-0.12,.55,1), opacity .55s ease-in;
+}
+.flyer svg { width: 100%; height: 100%; display: block; }
+
+/* ---- collection ---- */
+.collection {
+  background: var(--panel);
+  border-radius: 20px;
+  padding: 14px 14px 16px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.collection .head {
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 0 0 12px;
+}
+.collection h2 { font-size: 16px; font-weight: 600; margin: 0; color: var(--cream); }
+.collection .count { font-size: 14px; color: var(--amber); font-weight: 600; }
+.collection .empty-note { font-size: 14px; color: var(--dim); margin: 0 0 12px; }
+
+.grp { font-size: 14px; font-weight: 600; color: var(--dim); margin: 16px 0 8px; }
+.grp:first-child { margin-top: 0; }
+.slots-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.slot.elem { box-shadow: inset 0 0 0 2px var(--ec); }
+
+/* ---- quests ---- */
+.quests {
+  background: var(--panel);
+  border-radius: 20px;
+  padding: 14px;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+.quests h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; color: var(--cream); }
+.quests .qintro { font-size: 14px; color: var(--dim); margin: 0 0 12px; }
+#questList { display: flex; flex-direction: column; gap: 8px; }
+.qcard {
+  display: flex; align-items: center; gap: 12px;
+  font: inherit; color: var(--cream); text-align: left;
+  background: var(--panel2);
+  border: none; border-radius: 14px;
+  padding: 10px 14px 10px 10px;
+  cursor: pointer;
+}
+.qcard:disabled { opacity: .45; cursor: default; }
+.qcard:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+.qcard > svg { width: 44px; height: 44px; flex: none; }
+.qcard .mid { flex: 1; min-width: 0; }
+.qcard .qt { display: block; font-size: 17px; font-weight: 600; }
+.qcard .qs { display: block; font-size: 13px; color: var(--dim); }
+.qcard .len { text-align: center; flex: none; line-height: 1; }
+.qcard .len b { display: block; font-size: 26px; font-weight: 700; color: var(--qc); }
+.qcard .len small { font-size: 11px; color: var(--dim); }
+
+.questbar {
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 10px 12px 12px;
+}
+.qb-top { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; margin-bottom: 9px; }
+.qb-top svg { width: 22px; height: 22px; display: block; }
+.qb-count { color: var(--qc); }
+.qb-top .spacer { flex: 1; }
+.track { display: flex; gap: 3px; }
+.track i { flex: 1; height: 10px; border-radius: 5px; background: rgba(255,244,226,.14); transition: background .2s; }
+.track i.on { background: var(--qc); }
+.track i.miss { background: var(--coral); }
+
+.reward {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  padding-top: 4px;
+}
+.reward h2 { font-size: 26px; font-weight: 700; margin: 0; color: var(--amber); }
+.reward > p { margin: 2px 0 12px; color: var(--dim); font-size: 16px; }
+.prize svg { width: min(58vw, 230px); height: auto; display: block; margin: 0 auto; }
+.prize .pn { font-size: 24px; font-weight: 600; margin-top: 4px; }
+.claim { width: 100%; font-size: 22px; padding: 16px 0; margin-top: 14px; }
+.pickgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+.pickgrid button {
+  font: inherit; color: var(--cream);
+  background: var(--panel2);
+  border: none; border-radius: 14px;
+  padding: 6px 4px 7px;
+  cursor: pointer;
+}
+.pickgrid button:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+.pickgrid svg { width: 100%; height: auto; display: block; }
+.pickgrid .nm { font-size: 12px; }
+.pickgrid .st { font-size: 11px; font-weight: 600; color: var(--amber); }
+.pickgrid .st.new { color: var(--mint); }
+.pickgrid button.rare { background: #5A4327; box-shadow: inset 0 0 0 2px var(--amber); }
+.pickgrid button:disabled { opacity: .38; cursor: default; }
+.pickgrid .st.wait { color: var(--dim); }
+.slot {
+  background: var(--panel2);
+  border-radius: 14px;
+  padding: 6px 4px 7px;
+  text-align: center;
+}
+.slot svg { width: 100%; height: auto; display: block; }
+.slot .nm { font-size: 12px; color: var(--cream); margin-top: 1px; }
+.slot .ct { font-size: 11px; color: var(--amber); font-weight: 600; line-height: 1.2; }
+.slot.rare { background: #5A4327; box-shadow: inset 0 0 0 2px var(--amber); }
+.slot .star { font-size: 11px; color: var(--amber); line-height: 1; }
+.slot.locked { opacity: .35; }
+.slot.locked .q {
+  font-size: 26px; font-weight: 700; color: var(--dim);
+  aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center;
+}
+
+/* ---- the equation ---- */
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 0;
+}
+.eq {
+  font-size: clamp(50px, 17vw, 78px);
+  font-weight: 600;
+  letter-spacing: .02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.eq .op { color: var(--amber); padding: 0 .12em; }
+
+.entry {
+  font-size: clamp(46px, 15vw, 70px);
+  font-weight: 700;
+  line-height: 1.1;
+  min-height: 1.15em;
+  min-width: 2.2em;
+  text-align: center;
+  border-bottom: 5px solid rgba(255,244,226,.22);
+  padding: 0 .25em;
+  transition: border-color .15s, color .15s;
+}
+.entry.empty { color: rgba(255,244,226,.2); }
+.entry.right { color: var(--mint); border-bottom-color: var(--mint); }
+.entry.wrong { color: var(--coral); border-bottom-color: var(--coral); }
+
+.note { font-size: 17px; color: var(--dim); min-height: 1.3em; text-align: center; }
+.note.win { color: var(--mint); }
+
+/* ---- correction card ---- */
+.fix {
+  background: var(--panel);
+  border: 2px solid var(--coral);
+  border-radius: 20px;
+  padding: 18px 20px 20px;
+  text-align: center;
+}
+.fix .lead { font-size: 16px; color: var(--dim); margin-bottom: 8px; }
+.fix .answer {
+  font-size: clamp(36px, 12vw, 52px);
+  font-weight: 700;
+  line-height: 1.1;
+}
+.fix .answer .op { color: var(--amber); padding: 0 .1em; }
+.fix .answer .val { color: var(--mint); }
+
+/* ---- keypad ---- */
+.pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+.key {
+  font: inherit;
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--cream);
+  background: var(--panel);
+  border: none;
+  border-radius: 16px;
+  padding: 14px 0;
+  cursor: pointer;
+  transition: transform .06s ease, background .12s;
+}
+.key:active { transform: scale(.94); background: var(--panel2); }
+.key.util { font-size: 24px; background: var(--panel2); color: var(--dim); }
+.key.go { background: var(--amber); color: var(--deep); }
+.key.wide { grid-column: span 3; font-size: 22px; padding: 16px 0; }
+.key.span2 { grid-column: span 2; font-size: 21px; padding: 16px 0; }
+.key.span1 { font-size: 18px; padding: 16px 0; }
+.key:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+
+
+.hidden { display: none !important; }
+
+/* an open panel takes over the screen until "Done" */
+#app.panel-open .stage,
+#app.panel-open .pad,
+#app.panel-open .fix,
+#app.panel-open .reward { display: none !important; }
+#app.panel-open .quests,
+#app.panel-open .collection { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
+
+@media (max-width: 420px) {
+  #streakWrap { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key:active { transform: none; }
+  .bag.pop { animation: none; }
+  #bg.rare svg:not(.enter) { animation: none; opacity: .4; }
+  * { transition: none !important; }
+}
+
+/* ---- port only (not in the reference) ---- */
+/* React mounts into #root; the reference had #bg and #app directly in <body>. */
+#root { height: 100%; }
+/* The reference has no <!doctype>, so it renders in quirks mode, where an inline <small> on its
+   own line gets a line box of its own size. In standards mode the parent's 16px strut makes that
+   line taller and pushes the quest-length label ~2.5px down. display:block restores the quirks box. */
+.qcard .len small { display: block; }

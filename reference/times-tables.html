@@ -1,0 +1,1337 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Times Tables</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deep:   #2B1D45;
+    --panel:  #3D2A5F;
+    --panel2: #4B3573;
+    --amber:  #FFC145;
+    --mint:   #6DE0A6;
+    --coral:  #FF7F6E;
+    --cream:  #FFF4E2;
+    --dim:    rgba(255,244,226,.55);
+    --font: "Fredoka", ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--deep);
+    color: var(--cream);
+    font-family: var(--font);
+    font-weight: 500;
+    overscroll-behavior: none;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 14px 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ---- the animal behind everything ---- */
+  #bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 11vh;
+    pointer-events: none;
+  }
+  #bg svg {
+    width: min(74vw, 330px);
+    height: auto;
+    opacity: .24;
+    transition: opacity .3s ease;
+  }
+  #bg svg.enter { opacity: 0; }
+
+  /* a rare one glows while it's on screen */
+  #bg.rare svg { filter: drop-shadow(0 0 20px rgba(255,193,69,.6)); }
+  #bg.rare svg:not(.enter) { animation: rareglow 2.6s ease-in-out infinite; }
+  @keyframes rareglow {
+    0%, 100% { opacity: .26; }
+    50%      { opacity: .44; }
+  }
+
+  .rarity {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--amber);
+    letter-spacing: .04em;
+  }
+
+  /* ---- score strip ---- */
+  .strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    font-size: 14px;
+    white-space: nowrap;
+    color: var(--dim);
+  }
+  .strip b { color: var(--cream); font-weight: 600; }
+  .strip .spacer { flex: 1; }
+  .chip-btn {
+    font: inherit; font-size: 14px;
+    color: var(--dim);
+    background: none;
+    border: 1.5px solid rgba(255,244,226,.25);
+    border-radius: 999px;
+    padding: 5px 13px;
+    cursor: pointer;
+  }
+  .chip-btn:hover { color: var(--cream); border-color: rgba(255,244,226,.5); }
+
+  /* ---- backpack ---- */
+  .bag {
+    display: flex; align-items: center; gap: 6px;
+    font: inherit; font-size: 14px; font-weight: 600;
+    color: var(--amber);
+    background: var(--panel);
+    border: none; border-radius: 999px;
+    padding: 6px 13px 6px 10px;
+    cursor: pointer;
+  }
+  .bag svg { width: 22px; height: 22px; display: block; }
+  .bag.pop { animation: bagpop .5s ease; }
+  @keyframes bagpop {
+    0%   { transform: scale(1) rotate(0deg); }
+    30%  { transform: scale(1.28) rotate(-6deg); }
+    60%  { transform: scale(1.05) rotate(4deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  .bag:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+
+  .flyer {
+    position: fixed; z-index: 9; pointer-events: none; opacity: .75;
+    transition: transform .55s cubic-bezier(.5,-0.12,.55,1), opacity .55s ease-in;
+  }
+  .flyer svg { width: 100%; height: 100%; display: block; }
+
+  /* ---- collection ---- */
+  .collection {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 14px 14px 16px;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+  .collection .head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin: 0 0 12px;
+  }
+  .collection h2 { font-size: 16px; font-weight: 600; margin: 0; color: var(--cream); }
+  .collection .count { font-size: 14px; color: var(--amber); font-weight: 600; }
+  .collection .empty-note { font-size: 14px; color: var(--dim); margin: 0 0 12px; }
+
+  .grp { font-size: 14px; font-weight: 600; color: var(--dim); margin: 16px 0 8px; }
+  .grp:first-child { margin-top: 0; }
+  .slots-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+  .slot.elem { box-shadow: inset 0 0 0 2px var(--ec); }
+
+  /* ---- quests ---- */
+  .quests {
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 14px;
+    max-height: 56vh;
+    overflow-y: auto;
+  }
+  .quests h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; color: var(--cream); }
+  .quests .qintro { font-size: 14px; color: var(--dim); margin: 0 0 12px; }
+  #questList { display: flex; flex-direction: column; gap: 8px; }
+  .qcard {
+    display: flex; align-items: center; gap: 12px;
+    font: inherit; color: var(--cream); text-align: left;
+    background: var(--panel2);
+    border: none; border-radius: 14px;
+    padding: 10px 14px 10px 10px;
+    cursor: pointer;
+  }
+  .qcard:disabled { opacity: .45; cursor: default; }
+  .qcard:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+  .qcard > svg { width: 44px; height: 44px; flex: none; }
+  .qcard .mid { flex: 1; min-width: 0; }
+  .qcard .qt { display: block; font-size: 17px; font-weight: 600; }
+  .qcard .qs { display: block; font-size: 13px; color: var(--dim); }
+  .qcard .len { text-align: center; flex: none; line-height: 1; }
+  .qcard .len b { display: block; font-size: 26px; font-weight: 700; color: var(--qc); }
+  .qcard .len small { font-size: 11px; color: var(--dim); }
+
+  .questbar {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 10px 12px 12px;
+  }
+  .qb-top { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; margin-bottom: 9px; }
+  .qb-top svg { width: 22px; height: 22px; display: block; }
+  .qb-count { color: var(--qc); }
+  .qb-top .spacer { flex: 1; }
+  .track { display: flex; gap: 3px; }
+  .track i { flex: 1; height: 10px; border-radius: 5px; background: rgba(255,244,226,.14); transition: background .2s; }
+  .track i.on { background: var(--qc); }
+  .track i.miss { background: var(--coral); }
+
+  .reward {
+    flex: 1; min-height: 0; overflow-y: auto;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center;
+    padding-top: 4px;
+  }
+  .reward h2 { font-size: 26px; font-weight: 700; margin: 0; color: var(--amber); }
+  .reward > p { margin: 2px 0 12px; color: var(--dim); font-size: 16px; }
+  .prize svg { width: min(58vw, 230px); height: auto; display: block; margin: 0 auto; }
+  .prize .pn { font-size: 24px; font-weight: 600; margin-top: 4px; }
+  .claim { width: 100%; font-size: 22px; padding: 16px 0; margin-top: 14px; }
+  .pickgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+  .pickgrid button {
+    font: inherit; color: var(--cream);
+    background: var(--panel2);
+    border: none; border-radius: 14px;
+    padding: 6px 4px 7px;
+    cursor: pointer;
+  }
+  .pickgrid button:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+  .pickgrid svg { width: 100%; height: auto; display: block; }
+  .pickgrid .nm { font-size: 12px; }
+  .pickgrid .st { font-size: 11px; font-weight: 600; color: var(--amber); }
+  .pickgrid .st.new { color: var(--mint); }
+  .pickgrid button.rare { background: #5A4327; box-shadow: inset 0 0 0 2px var(--amber); }
+  .pickgrid button:disabled { opacity: .38; cursor: default; }
+  .pickgrid .st.wait { color: var(--dim); }
+  .slot {
+    background: var(--panel2);
+    border-radius: 14px;
+    padding: 6px 4px 7px;
+    text-align: center;
+  }
+  .slot svg { width: 100%; height: auto; display: block; }
+  .slot .nm { font-size: 12px; color: var(--cream); margin-top: 1px; }
+  .slot .ct { font-size: 11px; color: var(--amber); font-weight: 600; line-height: 1.2; }
+  .slot.rare { background: #5A4327; box-shadow: inset 0 0 0 2px var(--amber); }
+  .slot .star { font-size: 11px; color: var(--amber); line-height: 1; }
+  .slot.locked { opacity: .35; }
+  .slot.locked .q {
+    font-size: 26px; font-weight: 700; color: var(--dim);
+    aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ---- the equation ---- */
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 0;
+  }
+  .eq {
+    font-size: clamp(50px, 17vw, 78px);
+    font-weight: 600;
+    letter-spacing: .02em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .eq .op { color: var(--amber); padding: 0 .12em; }
+
+  .entry {
+    font-size: clamp(46px, 15vw, 70px);
+    font-weight: 700;
+    line-height: 1.1;
+    min-height: 1.15em;
+    min-width: 2.2em;
+    text-align: center;
+    border-bottom: 5px solid rgba(255,244,226,.22);
+    padding: 0 .25em;
+    transition: border-color .15s, color .15s;
+  }
+  .entry.empty { color: rgba(255,244,226,.2); }
+  .entry.right { color: var(--mint); border-bottom-color: var(--mint); }
+  .entry.wrong { color: var(--coral); border-bottom-color: var(--coral); }
+
+  .note { font-size: 17px; color: var(--dim); min-height: 1.3em; text-align: center; }
+  .note.win { color: var(--mint); }
+
+  /* ---- correction card ---- */
+  .fix {
+    background: var(--panel);
+    border: 2px solid var(--coral);
+    border-radius: 20px;
+    padding: 18px 20px 20px;
+    text-align: center;
+  }
+  .fix .lead { font-size: 16px; color: var(--dim); margin-bottom: 8px; }
+  .fix .answer {
+    font-size: clamp(36px, 12vw, 52px);
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .fix .answer .op { color: var(--amber); padding: 0 .1em; }
+  .fix .answer .val { color: var(--mint); }
+
+  /* ---- keypad ---- */
+  .pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+  }
+  .key {
+    font: inherit;
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--cream);
+    background: var(--panel);
+    border: none;
+    border-radius: 16px;
+    padding: 14px 0;
+    cursor: pointer;
+    transition: transform .06s ease, background .12s;
+  }
+  .key:active { transform: scale(.94); background: var(--panel2); }
+  .key.util { font-size: 24px; background: var(--panel2); color: var(--dim); }
+  .key.go { background: var(--amber); color: var(--deep); }
+  .key.wide { grid-column: span 3; font-size: 22px; padding: 16px 0; }
+  .key.span2 { grid-column: span 2; font-size: 21px; padding: 16px 0; }
+  .key.span1 { font-size: 18px; padding: 16px 0; }
+  .key:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+
+
+  .hidden { display: none !important; }
+
+  /* an open panel takes over the screen until "Done" */
+  #app.panel-open .stage,
+  #app.panel-open .pad,
+  #app.panel-open .fix,
+  #app.panel-open .reward { display: none !important; }
+  #app.panel-open .quests,
+  #app.panel-open .collection { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
+
+  @media (max-width: 420px) {
+    #streakWrap { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .key:active { transform: none; }
+    .bag.pop { animation: none; }
+    #bg.rare svg:not(.enter) { animation: none; opacity: .4; }
+    * { transition: none !important; }
+  }
+</style>
+
+<div id="bg" aria-hidden="true"></div>
+
+<div id="app">
+  <div class="strip">
+    <span><b id="score">0</b> right</span>
+    <span id="streakWrap" class="hidden">· <b id="streak">0</b> in a row</span>
+    <span class="spacer"></span>
+    <button class="chip-btn" id="questsBtn">Quests</button>
+    <button class="bag" id="bagBtn" aria-label="Open backpack">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 7.5V6.5a4 4 0 0 1 8 0v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <rect x="3" y="7" width="18" height="14" rx="4.5" fill="currentColor"/>
+        <path d="M3.6 14h16.8" stroke="var(--panel)" stroke-width="2"/>
+        <rect x="9.6" y="15.4" width="4.8" height="4" rx="1.3" fill="var(--panel)"/>
+      </svg>
+      <span id="bagCount">0</span>
+    </button>
+  </div>
+
+  <div class="questbar hidden" id="questbar">
+    <div class="qb-top">
+      <span id="qbIcon"></span>
+      <span id="qbName"></span>
+      <span class="qb-count" id="qbCount"></span>
+      <span class="spacer"></span>
+      <button class="chip-btn" id="qbQuit">Quit</button>
+    </div>
+    <div class="track" id="track"></div>
+  </div>
+
+  <div class="reward hidden" id="reward">
+    <h2 id="rewardTitle"></h2>
+    <p id="rewardSub"></p>
+    <div id="rewardBody" style="width:100%"></div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="rarity hidden" id="rarity">★ rare animal</div>
+    <div class="eq" id="eq">7 <span class="op">×</span> 8</div>
+    <div class="entry empty" id="entry">?</div>
+    <div class="note" id="note"></div>
+  </div>
+
+  <div class="fix hidden" id="fix">
+    <div class="lead" id="fixLead">Not quite.</div>
+    <div class="answer" id="fixAnswer"></div>
+  </div>
+
+  <div class="pad" id="pad"></div>
+
+  <div class="quests hidden" id="quests">
+    <h2>Quests</h2>
+    <p class="qintro">Get every problem right to win. One wrong answer ends the quest.</p>
+    <div id="questList"></div>
+  </div>
+
+  <div class="collection hidden" id="collection">
+    <div class="head">
+      <h2>Backpack</h2>
+      <span class="count" id="collCount"></span>
+    </div>
+    <p class="empty-note hidden" id="collEmpty">Get an answer right and the animal hops in here.</p>
+    <div class="slots" id="slots"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var MIN = 2, MAX = 12;     // no ×1 problems: too easy
+  var STORE_KEY = "times-tables-state";
+
+  var state = {
+    weak: {},            // "a x b" -> times still owed
+    caught: {},          // animal name -> how many times caught
+    wins: {},            // quest id -> times beaten
+    rarePickDay: "",     // local date of the last rare animal taken from Pick-a-Pet
+    mysteryDay: "",      // local date the Mystery Box was last opened
+    score: 0,
+    streak: 0
+  };
+
+  var current = null;    // {a, b, answer}
+  var typed = "";
+  var phase = "ask";     // ask | correcting
+  var lastKey = "";
+  var sinceReview = 0;
+  var showing = -1;      // index of the animal currently on screen
+  var quest = null;      // {def, done} while a quest is running
+
+  var el = {};
+  ["score","streak","streakWrap","eq","entry","note","fix","fixLead","fixAnswer",
+   "pad","stage","bg","bagBtn","bagCount",
+   "collection","collCount","collEmpty","slots","rarity",
+   "questsBtn","quests","questList","questbar","qbIcon","qbName","qbCount","qbQuit","track",
+   "reward","rewardTitle","rewardSub","rewardBody"].forEach(function (id) { el[id] = document.getElementById(id); });
+
+  /* ---------- storage (best effort) ---------- */
+
+  function save() {
+    if (!window.storage) return;
+    try {
+      window.storage.set(STORE_KEY, JSON.stringify({
+        weak: state.weak, caught: state.caught, wins: state.wins,
+        rarePickDay: state.rarePickDay, mysteryDay: state.mysteryDay
+      }), false);
+    } catch (e) { /* practice still works without saving */ }
+  }
+
+  function load() {
+    if (!window.storage) return Promise.resolve(null);
+    try {
+      return window.storage.get(STORE_KEY, false)
+        .then(function (r) { return r ? JSON.parse(r.value) : null; })
+        .catch(function () { return null; });
+    } catch (e) { return Promise.resolve(null); }
+  }
+
+  /* ---------- animals ---------- */
+
+  var ANIMALS = [
+    // cat
+    '<g fill="#F6A65C"><path d="M52 78 L58 30 L98 58 Z"/><path d="M148 78 L142 30 L102 58 Z"/><circle cx="100" cy="112" r="58"/></g>' +
+    '<path d="M62 72 L66 44 L90 61 Z" fill="#FF9EB0"/><path d="M138 72 L134 44 L110 61 Z" fill="#FF9EB0"/>' +
+    '<ellipse cx="78" cy="105" rx="7" ry="10" fill="#3A2A1E"/><ellipse cx="122" cy="105" rx="7" ry="10" fill="#3A2A1E"/>' +
+    '<path d="M92 126 L108 126 L100 135 Z" fill="#FF9EB0"/>' +
+    '<g stroke="#3A2A1E" stroke-width="3" stroke-linecap="round" fill="none">' +
+    '<path d="M100 135 q-11 12 -18 3"/><path d="M100 135 q11 12 18 3"/>' +
+    '<path d="M68 128 L42 122"/><path d="M68 137 L44 140"/><path d="M132 128 L158 122"/><path d="M132 137 L156 140"/></g>',
+
+    // dog
+    '<ellipse cx="48" cy="112" rx="20" ry="42" fill="#C08A4E"/><ellipse cx="152" cy="112" rx="20" ry="42" fill="#C08A4E"/>' +
+    '<circle cx="100" cy="106" r="56" fill="#E3B276"/><ellipse cx="100" cy="132" rx="30" ry="24" fill="#F6DDB8"/>' +
+    '<ellipse cx="100" cy="122" rx="12" ry="9" fill="#4A3323"/>' +
+    '<circle cx="78" cy="96" r="7" fill="#4A3323"/><circle cx="122" cy="96" r="7" fill="#4A3323"/>' +
+    '<path d="M100 131 v8 M100 139 q-10 9 -17 1 M100 139 q10 9 17 1" fill="none" stroke="#4A3323" stroke-width="3.5" stroke-linecap="round"/>',
+
+    // bear
+    '<circle cx="58" cy="62" r="24" fill="#B98157"/><circle cx="142" cy="62" r="24" fill="#B98157"/>' +
+    '<circle cx="58" cy="62" r="12" fill="#E8B98C"/><circle cx="142" cy="62" r="12" fill="#E8B98C"/>' +
+    '<circle cx="100" cy="112" r="62" fill="#B98157"/><ellipse cx="100" cy="132" rx="34" ry="26" fill="#E8B98C"/>' +
+    '<ellipse cx="100" cy="120" rx="11" ry="8" fill="#4A3323"/>' +
+    '<circle cx="78" cy="100" r="7" fill="#4A3323"/><circle cx="122" cy="100" r="7" fill="#4A3323"/>' +
+    '<path d="M100 128 v8 M100 136 q-10 8 -16 0 M100 136 q10 8 16 0" fill="none" stroke="#4A3323" stroke-width="3.5" stroke-linecap="round"/>',
+
+    // bunny
+    '<g fill="#F2E6DA"><ellipse cx="80" cy="56" rx="15" ry="44" transform="rotate(-10 80 56)"/><ellipse cx="120" cy="56" rx="15" ry="44" transform="rotate(10 120 56)"/></g>' +
+    '<g fill="#FFB3C1"><ellipse cx="80" cy="58" rx="7" ry="30" transform="rotate(-10 80 58)"/><ellipse cx="120" cy="58" rx="7" ry="30" transform="rotate(10 120 58)"/></g>' +
+    '<circle cx="100" cy="128" r="50" fill="#F2E6DA"/>' +
+    '<circle cx="82" cy="122" r="6" fill="#4A3323"/><circle cx="118" cy="122" r="6" fill="#4A3323"/>' +
+    '<path d="M92 140 L108 140 L100 148 Z" fill="#FFB3C1"/>' +
+    '<circle cx="68" cy="142" r="9" fill="#FFB3C1"/><circle cx="132" cy="142" r="9" fill="#FFB3C1"/>',
+
+    // fox
+    '<path d="M46 74 L54 26 L96 54 Z" fill="#E9743F"/><path d="M154 74 L146 26 L104 54 Z" fill="#E9743F"/>' +
+    '<path d="M56 66 L62 40 L88 56 Z" fill="#3A2A1E"/><path d="M144 66 L138 40 L112 56 Z" fill="#3A2A1E"/>' +
+    '<path d="M42 88 Q100 46 158 88 Q158 130 100 168 Q42 130 42 88 Z" fill="#E9743F"/>' +
+    '<path d="M70 128 Q100 108 130 128 Q124 152 100 168 Q76 152 70 128 Z" fill="#F7E4D2"/>' +
+    '<circle cx="76" cy="104" r="7" fill="#3A2A1E"/><circle cx="124" cy="104" r="7" fill="#3A2A1E"/>' +
+    '<ellipse cx="100" cy="140" rx="9" ry="7" fill="#3A2A1E"/>',
+
+    // owl
+    '<path d="M62 64 L70 30 L96 54 Z" fill="#8A6BC4"/><path d="M138 64 L130 30 L104 54 Z" fill="#8A6BC4"/>' +
+    '<ellipse cx="100" cy="112" rx="60" ry="66" fill="#8A6BC4"/><ellipse cx="100" cy="128" rx="34" ry="46" fill="#C7B4E8"/>' +
+    '<circle cx="76" cy="96" r="26" fill="#FFF4E2"/><circle cx="124" cy="96" r="26" fill="#FFF4E2"/>' +
+    '<circle cx="76" cy="96" r="11" fill="#3A2A1E"/><circle cx="124" cy="96" r="11" fill="#3A2A1E"/>' +
+    '<path d="M88 120 L112 120 L100 138 Z" fill="#FFC145"/>' +
+    '<g stroke="#FFC145" stroke-width="6" stroke-linecap="round"><path d="M84 172 l-8 12"/><path d="M116 172 l8 12"/></g>',
+
+    // frog
+    '<circle cx="70" cy="70" r="26" fill="#6DC26B"/><circle cx="130" cy="70" r="26" fill="#6DC26B"/>' +
+    '<circle cx="70" cy="68" r="16" fill="#FFF4E2"/><circle cx="130" cy="68" r="16" fill="#FFF4E2"/>' +
+    '<circle cx="70" cy="70" r="8" fill="#26331F"/><circle cx="130" cy="70" r="8" fill="#26331F"/>' +
+    '<ellipse cx="100" cy="126" rx="62" ry="48" fill="#6DC26B"/>' +
+    '<path d="M62 126 Q100 162 138 126" fill="none" stroke="#26331F" stroke-width="5" stroke-linecap="round"/>' +
+    '<circle cx="56" cy="118" r="10" fill="#FF9EB0"/><circle cx="144" cy="118" r="10" fill="#FF9EB0"/>',
+
+    // penguin
+    '<ellipse cx="46" cy="118" rx="12" ry="34" fill="#3D4A63" transform="rotate(12 46 118)"/>' +
+    '<ellipse cx="154" cy="118" rx="12" ry="34" fill="#3D4A63" transform="rotate(-12 154 118)"/>' +
+    '<ellipse cx="100" cy="112" rx="52" ry="66" fill="#3D4A63"/><ellipse cx="100" cy="124" rx="34" ry="50" fill="#FFF4E2"/>' +
+    '<circle cx="86" cy="86" r="7" fill="#22293A"/><circle cx="114" cy="86" r="7" fill="#22293A"/>' +
+    '<path d="M88 100 L112 100 L100 114 Z" fill="#FFC145"/>' +
+    '<ellipse cx="80" cy="176" rx="16" ry="8" fill="#FFC145"/><ellipse cx="120" cy="176" rx="16" ry="8" fill="#FFC145"/>',
+
+    // whale
+    '<g fill="#C7E4F7"><circle cx="66" cy="44" r="9"/><circle cx="50" cy="30" r="6"/><circle cx="82" cy="28" r="5"/></g>' +
+    '<path d="M26 116 Q26 66 92 66 Q152 66 162 106 L186 82 L182 146 L158 130 Q138 158 92 158 Q26 158 26 116 Z" fill="#5AA9E6"/>' +
+    '<path d="M38 132 Q90 156 150 132 Q136 156 92 156 Q52 156 38 132 Z" fill="#C7E4F7"/>' +
+    '<circle cx="64" cy="104" r="7" fill="#1E3A52"/>' +
+    '<path d="M42 122 q14 10 30 5" fill="none" stroke="#1E3A52" stroke-width="4" stroke-linecap="round"/>',
+
+    // turtle
+    '<ellipse cx="172" cy="126" rx="20" ry="18" fill="#8FCB6B"/><circle cx="178" cy="120" r="5" fill="#26331F"/>' +
+    '<ellipse cx="52" cy="158" rx="18" ry="12" fill="#8FCB6B"/><ellipse cx="124" cy="158" rx="18" ry="12" fill="#8FCB6B"/>' +
+    '<path d="M24 148 A66 66 0 0 1 156 148 Z" fill="#E0A45C"/>' +
+    '<g fill="#C4833F"><circle cx="90" cy="106" r="20"/><circle cx="50" cy="132" r="15"/><circle cx="130" cy="132" r="15"/></g>',
+
+    // elephant
+    '<ellipse cx="46" cy="102" rx="30" ry="40" fill="#9AA7C4"/><ellipse cx="154" cy="102" rx="30" ry="40" fill="#9AA7C4"/>' +
+    '<circle cx="100" cy="100" r="52" fill="#B6C1DA"/>' +
+    '<path d="M86 138 Q86 178 112 178 Q132 178 132 158" fill="none" stroke="#B6C1DA" stroke-width="26" stroke-linecap="round"/>' +
+    '<circle cx="80" cy="94" r="7" fill="#3A3F4F"/><circle cx="120" cy="94" r="7" fill="#3A3F4F"/>',
+
+    // pig
+    '<path d="M50 76 L56 38 L92 60 Z" fill="#F2A0B5"/><path d="M150 76 L144 38 L108 60 Z" fill="#F2A0B5"/>' +
+    '<circle cx="100" cy="110" r="58" fill="#F2A0B5"/><ellipse cx="100" cy="130" rx="28" ry="22" fill="#E07E98"/>' +
+    '<ellipse cx="90" cy="130" rx="6" ry="9" fill="#B4536B"/><ellipse cx="110" cy="130" rx="6" ry="9" fill="#B4536B"/>' +
+    '<circle cx="76" cy="96" r="7" fill="#5A2E3C"/><circle cx="124" cy="96" r="7" fill="#5A2E3C"/>',
+
+    // panda
+    '<circle cx="58" cy="58" r="22" fill="#3A3A44"/><circle cx="142" cy="58" r="22" fill="#3A3A44"/>' +
+    '<circle cx="100" cy="110" r="60" fill="#FFF4E2"/>' +
+    '<ellipse cx="74" cy="104" rx="18" ry="22" fill="#3A3A44" transform="rotate(-18 74 104)"/>' +
+    '<ellipse cx="126" cy="104" rx="18" ry="22" fill="#3A3A44" transform="rotate(18 126 104)"/>' +
+    '<circle cx="74" cy="104" r="7" fill="#FFF4E2"/><circle cx="126" cy="104" r="7" fill="#FFF4E2"/>' +
+    '<ellipse cx="100" cy="134" rx="12" ry="9" fill="#3A3A44"/>' +
+    '<path d="M100 143 q-12 12 -20 2 M100 143 q12 12 20 2" fill="none" stroke="#3A3A44" stroke-width="4" stroke-linecap="round"/>',
+
+    /* --- rare from here down (see COMMON) --- */
+
+    // axolotl — gills swept up and back so they read as frills, not legs
+    '<g stroke="#F089AF" stroke-width="11" stroke-linecap="round">' +
+    '<path d="M62 94 L36 68"/><path d="M56 106 L24 94"/><path d="M56 120 L26 120"/>' +
+    '<path d="M138 94 L164 68"/><path d="M144 106 L176 94"/><path d="M144 120 L174 120"/></g>' +
+    '<g fill="#F7A3C2">' +
+    '<circle cx="32" cy="64" r="10"/><circle cx="43" cy="57" r="8"/><circle cx="25" cy="74" r="8"/>' +
+    '<circle cx="20" cy="90" r="10"/><circle cx="15" cy="102" r="8"/><circle cx="28" cy="81" r="8"/>' +
+    '<circle cx="22" cy="120" r="10"/><circle cx="14" cy="129" r="8"/><circle cx="20" cy="108" r="8"/>' +
+    '<circle cx="168" cy="64" r="10"/><circle cx="157" cy="57" r="8"/><circle cx="175" cy="74" r="8"/>' +
+    '<circle cx="180" cy="90" r="10"/><circle cx="185" cy="102" r="8"/><circle cx="172" cy="81" r="8"/>' +
+    '<circle cx="178" cy="120" r="10"/><circle cx="186" cy="129" r="8"/><circle cx="180" cy="108" r="8"/></g>' +
+    '<ellipse cx="100" cy="112" rx="54" ry="46" fill="#FBD2DF"/>' +
+    '<circle cx="72" cy="126" r="10" fill="#F79DBC"/><circle cx="128" cy="126" r="10" fill="#F79DBC"/>' +
+    '<circle cx="80" cy="104" r="6.5" fill="#4A2A38"/><circle cx="120" cy="104" r="6.5" fill="#4A2A38"/>' +
+    '<path d="M80 130 Q100 149 120 130" fill="none" stroke="#C9627F" stroke-width="5" stroke-linecap="round"/>',
+
+    // salamander
+    '<path d="M16 150 Q30 140 34 128" fill="none" stroke="#3A3350" stroke-width="10" stroke-linecap="round"/>' +
+    '<path d="M30 132 Q38 122 48 124" fill="none" stroke="#3A3350" stroke-width="19" stroke-linecap="round"/>' +
+    '<g stroke="#3A3350" stroke-width="14" stroke-linecap="round">' +
+    '<path d="M68 132 L58 160"/><path d="M98 120 L94 150"/><path d="M128 126 L124 156"/><path d="M152 128 L160 156"/></g>' +
+    '<path d="M48 126 Q90 100 124 124 Q148 140 164 116" fill="none" stroke="#3A3350" stroke-width="33" stroke-linecap="round"/>' +
+    '<circle cx="166" cy="114" r="24" fill="#3A3350"/>' +
+    '<g fill="#FFC145"><circle cx="60" cy="120" r="7"/><circle cx="86" cy="104" r="8"/>' +
+    '<circle cx="112" cy="112" r="7"/><circle cx="134" cy="130" r="7"/><circle cx="156" cy="98" r="7"/></g>' +
+    '<circle cx="174" cy="104" r="7" fill="#FFF4E2"/><circle cx="175" cy="104" r="3.5" fill="#201C2E"/>' +
+    '<path d="M176 124 q8 4 12 -3" fill="none" stroke="#FFC145" stroke-width="4" stroke-linecap="round"/>',
+
+    // chameleon — on a branch, curly tail, turret eye
+    '<rect x="16" y="158" width="172" height="11" rx="5.5" fill="#8A5A35"/>' +
+    '<path d="M50 126 Q22 132 24 154 Q28 174 48 170 Q64 164 58 150 Q52 140 42 148" fill="none" stroke="#6CC04A" stroke-width="13" stroke-linecap="round"/>' +
+    '<g stroke="#6CC04A" stroke-width="10" stroke-linecap="round"><path d="M74 136 L66 160"/><path d="M118 136 L126 160"/></g>' +
+    '<ellipse cx="96" cy="116" rx="54" ry="32" fill="#6CC04A"/>' +
+    '<g fill="none" stroke="#A8E07A" stroke-width="6" stroke-linecap="round"><path d="M70 92 Q64 116 72 140"/><path d="M96 86 Q90 116 98 146"/><path d="M122 92 Q116 116 122 138"/></g>' +
+    '<path d="M134 98 Q144 66 168 82 Q186 100 176 122 Q160 136 136 130 Z" fill="#6CC04A"/>' +
+    '<path d="M138 96 Q148 70 166 82" fill="none" stroke="#4E9A3C" stroke-width="5" stroke-linecap="round"/>' +
+    '<circle cx="160" cy="106" r="13" fill="#A8E07A"/><circle cx="163" cy="106" r="5" fill="#26331F"/>' +
+    '<path d="M150 124 Q164 128 176 120" fill="none" stroke="#26331F" stroke-width="3.5" stroke-linecap="round"/>',
+
+    // lizard — seen from above, long curly tail
+    '<path d="M100 140 Q102 172 128 178 Q150 182 162 166" fill="none" stroke="#E8B44C" stroke-width="15" stroke-linecap="round"/>' +
+    '<path d="M150 178 Q166 176 170 160" fill="none" stroke="#E8B44C" stroke-width="8" stroke-linecap="round"/>' +
+    '<g fill="none" stroke="#D9963A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M84 92 L60 82 L54 66"/><path d="M116 92 L140 82 L146 66"/>' +
+    '<path d="M84 128 L60 138 L54 154"/><path d="M116 128 L140 138 L146 154"/></g>' +
+    '<g fill="#D9963A"><circle cx="54" cy="64" r="6"/><circle cx="146" cy="64" r="6"/><circle cx="54" cy="156" r="6"/><circle cx="146" cy="156" r="6"/></g>' +
+    '<ellipse cx="100" cy="110" rx="25" ry="40" fill="#E8B44C"/>' +
+    '<ellipse cx="100" cy="60" rx="23" ry="21" fill="#E8B44C"/>' +
+    '<g fill="#C9782E"><circle cx="100" cy="92" r="5"/><circle cx="100" cy="110" r="6"/><circle cx="100" cy="128" r="5"/></g>' +
+    '<circle cx="88" cy="54" r="7" fill="#FFF4E2"/><circle cx="112" cy="54" r="7" fill="#FFF4E2"/>' +
+    '<circle cx="88" cy="55" r="3.5" fill="#3A2A1E"/><circle cx="112" cy="55" r="3.5" fill="#3A2A1E"/>' +
+    '<path d="M92 70 Q100 76 108 70" fill="none" stroke="#3A2A1E" stroke-width="3" stroke-linecap="round"/>',
+
+    // snake — coiled up, head raised, forked tongue
+    '<ellipse cx="100" cy="156" rx="60" ry="20" fill="none" stroke="#2FA69A" stroke-width="22"/>' +
+    '<ellipse cx="100" cy="132" rx="44" ry="15" fill="none" stroke="#3FB5A8" stroke-width="20"/>' +
+    '<path d="M138 128 Q156 100 128 80" fill="none" stroke="#3FB5A8" stroke-width="19" stroke-linecap="round"/>' +
+    '<g fill="#FFC145"><circle cx="60" cy="166" r="5"/><circle cx="100" cy="174" r="5"/><circle cx="140" cy="166" r="5"/>' +
+    '<circle cx="70" cy="140" r="4.5"/><circle cx="106" cy="146" r="4.5"/><circle cx="148" cy="108" r="4.5"/></g>' +
+    '<ellipse cx="112" cy="72" rx="28" ry="20" fill="#3FB5A8"/>' +
+    '<circle cx="104" cy="66" r="6" fill="#FFF4E2"/><circle cx="122" cy="66" r="6" fill="#FFF4E2"/>' +
+    '<circle cx="104" cy="67" r="3" fill="#163E3A"/><circle cx="122" cy="67" r="3" fill="#163E3A"/>' +
+    '<path d="M100 84 Q112 90 124 84" fill="none" stroke="#163E3A" stroke-width="3" stroke-linecap="round"/>' +
+    '<path d="M112 90 V104 M112 104 L106 110 M112 104 L118 110" fill="none" stroke="#FF7F6E" stroke-width="3.5" stroke-linecap="round"/>'
+  ];
+
+  // Everything before this index is common; the rest only turn up occasionally.
+  var COMMON = 13;
+  var RARE_CHANCE = 0.05;
+
+  // same order as ANIMALS
+  var NAMES = ["Cat","Dog","Bear","Bunny","Fox","Owl","Frog","Penguin",
+               "Whale","Turtle","Elephant","Pig","Panda",
+               "Axolotl","Salamander","Chameleon","Lizard","Snake"];
+
+  function isRare(i) { return i >= COMMON; }
+
+  /* ---------- quest animals: element versions of the regulars ---------- */
+
+  var ELEMENTS = {
+    water:   { label: "Water",   color: "#5FC6E8", dark: "#0E2F4A",
+               ramp: ["#1F6FB2","#2E9CD6","#6FD0EE","#C9F1FC"], animals: ["Whale","Frog","Turtle","Penguin","Axolotl","Salamander","Snake","Dog"] },
+    earth:   { label: "Earth",   color: "#7CC46A", dark: "#2E1F12",
+               ramp: ["#6E4B2A","#9A6B3F","#C49A63","#E8D3A8"], animals: ["Bunny","Elephant","Pig","Bear","Dog","Lizard","Fox","Panda"] },
+    fire:    { label: "Fire",    color: "#FF8A3D", dark: "#4A140A",
+               ramp: ["#D9381E","#F2701B","#FFA41C","#FFE08A"], animals: ["Fox","Dog","Cat","Bear","Owl","Lizard","Snake","Pig"] },
+    ice:     { label: "Ice",     color: "#BDE3F7", dark: "#2A3B55",
+               ramp: ["#86B4DC","#B3D6F0","#DCEEFA","#FAFDFF"], animals: ["Penguin","Bunny","Bear","Owl","Whale","Fox","Cat","Elephant"] },
+    emerald: { label: "Emerald", color: "#3DD68C", dark: "#0B3B2A",
+               ramp: ["#0F8A5F","#22B573","#6EE0A0","#D4FBE5"], animals: ["Frog","Turtle","Salamander","Cat","Panda","Chameleon","Snake","Owl"] },
+    ruby:    { label: "Ruby",    color: "#FF4F7B", dark: "#4A0A1E",
+               ramp: ["#B3123A","#E0245A","#FF6B8E","#FFD0DC"], animals: ["Axolotl","Fox","Pig","Bunny","Dog","Chameleon","Lizard","Bear"] },
+    golden:  { label: "Golden",  color: "#FFCC33", dark: "#4A3300",
+               ramp: ["#C98A0B","#E8B020","#FFD54A","#FFF3B8"], animals: ["Bear","Elephant","Penguin","Cat","Owl","Dog","Panda","Snake"] },
+    diamond: { label: "Diamond", color: "#A8F0F5", dark: "#2A1F55",
+               ramp: ["#8C7CF8","#5CC8F0","#A8F0F5","#FFFFFF"], animals: ["Panda","Owl","Elephant","Whale","Fox","Axolotl","Bunny","Chameleon"] }
+  };
+
+  function lum(h) {
+    var r = parseInt(h.slice(1, 3), 16) / 255,
+        g = parseInt(h.slice(3, 5), 16) / 255,
+        b = parseInt(h.slice(5, 7), 16) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  // Swap an animal's colors for an element palette. Colors keep their light-to-dark
+  // order, so muzzles stay lighter than faces and eyes stay dark.
+  function recolor(svg, E) {
+    var seen = {}, light = [];
+    (svg.match(/#[0-9A-Fa-f]{6}/g) || []).forEach(function (h) {
+      h = h.toUpperCase();
+      if (!seen[h]) { seen[h] = 1; if (lum(h) >= 0.26) light.push(h); }
+    });
+    light.sort(function (a, b) { return lum(a) - lum(b); });
+    var map = {}, n = light.length, R = E.ramp.length;
+    light.forEach(function (h, k) {
+      map[h] = E.ramp[n === 1 ? R - 2 : Math.round(k * (R - 1) / (n - 1))];
+    });
+    return svg.replace(/#[0-9A-Fa-f]{6}/g, function (h) { return map[h.toUpperCase()] || E.dark; });
+  }
+
+  function snowflake(x, y, s) {
+    var a = (0.87 * s).toFixed(1), b = (0.5 * s).toFixed(1);
+    return '<path transform="translate(' + x + ' ' + y + ')" d="M0 -' + s + ' V' + s +
+           ' M-' + a + ' -' + b + ' L' + a + ' ' + b + ' M-' + a + ' ' + b + ' L' + a + ' -' + b + '"/>';
+  }
+  function sparkle(x, y, s) {
+    return '<path transform="translate(' + x + ' ' + y + ') scale(' + s + ')" d="M0 -12 L3 -3 L12 0 L3 3 L0 12 L-3 3 L-12 0 L-3 -3 Z"/>';
+  }
+
+  var DECOR = {
+    fire: {
+      back: '<g fill="#FF7A2A"><path d="M100 2 Q126 34 117 58 Q100 74 83 58 Q74 34 100 2 Z"/>' +
+            '<path d="M62 16 Q82 42 75 62 Q62 72 52 60 Q46 40 62 16 Z"/>' +
+            '<path d="M138 16 Q154 40 148 60 Q138 72 125 62 Q118 42 138 16 Z"/></g>' +
+            '<path d="M100 24 Q113 44 108 58 Q100 64 92 58 Q87 44 100 24 Z" fill="#FFD166"/>',
+      front: ""
+    },
+    water: {
+      back: "",
+      front: '<g fill="none" stroke="#C9F1FC" stroke-width="4"><circle cx="26" cy="46" r="10"/><circle cx="40" cy="22" r="6"/>' +
+             '<circle cx="174" cy="40" r="8"/><circle cx="184" cy="18" r="4"/><circle cx="180" cy="172" r="7"/></g>'
+    },
+    earth: {
+      back: '<path d="M100 60 V30" stroke="#4E9A3C" stroke-width="5" stroke-linecap="round"/>' +
+            '<path d="M100 38 Q84 20 68 30 Q84 46 100 38 Z" fill="#7CC46A"/>' +
+            '<path d="M100 32 Q116 12 134 22 Q118 40 100 32 Z" fill="#9BD67F"/>',
+      front: '<g fill="#9A6B3F"><ellipse cx="26" cy="176" rx="12" ry="8"/><ellipse cx="44" cy="182" rx="8" ry="5"/>' +
+             '<ellipse cx="174" cy="178" rx="11" ry="7"/></g>' +
+             '<g fill="#7CC46A"><path d="M24 40 Q24 22 40 18 Q42 36 24 40 Z"/><path d="M176 46 Q172 28 156 28 Q158 44 176 46 Z"/></g>'
+    },
+    ice: {
+      back: "",
+      front: '<g stroke="#FAFDFF" stroke-width="4" stroke-linecap="round" fill="none">' +
+             snowflake(28, 36, 13) + snowflake(172, 30, 10) + snowflake(178, 168, 9) + snowflake(22, 166, 7) + "</g>"
+    },
+    emerald: {
+      back: "",
+      front: '<g fill="#B8F7D4">' + sparkle(26, 40, 1.3) + sparkle(174, 34, 1.1) + sparkle(178, 162, 1.2) +
+             sparkle(22, 158, 0.8) + "</g>"
+    },
+    ruby: {
+      back: "",
+      front: '<g fill="#FFC2D1">' + sparkle(26, 40, 1.3) + sparkle(174, 34, 1.1) + sparkle(178, 162, 1.2) +
+             sparkle(22, 158, 0.8) + "</g>"
+    },
+    golden: {
+      back: "",
+      front: '<g transform="translate(68 0) scale(.32)">' +
+             '<path d="M30 150 L40 60 L75 100 L100 40 L125 100 L160 60 L170 150 Z" fill="#FFCC33"/>' +
+             '<rect x="30" y="140" width="140" height="26" rx="6" fill="#E8B020"/>' +
+             '<g fill="#FF4F7B"><circle cx="40" cy="58" r="11"/><circle cx="100" cy="38" r="11"/><circle cx="160" cy="58" r="11"/></g></g>' +
+             '<g fill="#FFF3B8">' + sparkle(26, 44, 1.2) + sparkle(178, 160, 1.2) + sparkle(22, 158, 0.8) + "</g>"
+    },
+    diamond: {
+      back: "",
+      front: '<g fill="#FFFFFF">' + sparkle(26, 40, 1.4) + sparkle(172, 30, 1.1) + sparkle(180, 160, 1.2) +
+             sparkle(22, 160, 0.8) + sparkle(150, 12, 0.7) + "</g>"
+    }
+  };
+
+  function elementArt(baseName, key) {
+    var i = NAMES.indexOf(baseName);
+    return DECOR[key].back + recolor(ANIMALS[i], ELEMENTS[key]) + DECOR[key].front;
+  }
+
+  // Everything that can go in the backpack, in collection order.
+  var COLLECTIBLES = [];
+  ANIMALS.forEach(function (art, i) {
+    COLLECTIBLES.push({ name: NAMES[i], label: NAMES[i], svg: art, group: isRare(i) ? "rare" : "animals" });
+  });
+  Object.keys(ELEMENTS).forEach(function (k) {
+    ELEMENTS[k].animals.forEach(function (base) {
+      COLLECTIBLES.push({ name: ELEMENTS[k].label + " " + base, label: base, svg: elementArt(base, k), group: k });
+    });
+  });
+
+  var GROUPS = [
+    { key: "animals", label: "Animals" },
+    { key: "rare",    label: "Rare" },
+    { key: "water",   label: "Water animals" },
+    { key: "earth",   label: "Earth animals" },
+    { key: "fire",    label: "Fire animals" },
+    { key: "ice",     label: "Ice animals" },
+    { key: "emerald", label: "Emerald animals" },
+    { key: "ruby",    label: "Ruby animals" },
+    { key: "golden",  label: "Golden animals" },
+    { key: "diamond", label: "Diamond animals" }
+  ];
+
+  /* ---------- quests ---------- */
+
+  var snowArm = '<path d="M82 36 L100 54 L118 36 M82 164 L100 146 L118 164"/>';
+  var EMBLEMS = {
+    mystery: '<path d="M100 64 Q68 18 50 38 Q42 60 100 64 Q132 18 150 38 Q158 60 100 64 Z" fill="#FFC145"/>' +
+             '<rect x="36" y="88" width="128" height="92" rx="10" fill="#9B6BFF"/>' +
+             '<rect x="26" y="62" width="148" height="34" rx="8" fill="#B48CFF"/>' +
+             '<rect x="90" y="62" width="20" height="118" fill="#FFC145"/>' +
+             '<g fill="#FFF4E2" font-family="Fredoka, sans-serif" font-weight="700" font-size="48" text-anchor="middle">' +
+             '<text x="63" y="156">?</text><text x="137" y="156">?</text></g>',
+    pick: '<path d="M100 18 L123 72 L182 76 L137 114 L151 172 L100 141 L49 172 L63 114 L18 76 L77 72 Z" fill="#FFC145"/>',
+    water: '<path d="M100 22 Q152 92 152 126 A52 52 0 0 1 48 126 Q48 92 100 22 Z" fill="#5FC6E8"/>' +
+           '<path d="M76 120 Q76 142 96 152" fill="none" stroke="#C9F1FC" stroke-width="9" stroke-linecap="round"/>',
+    earth: '<circle cx="100" cy="100" r="76" fill="#4BA3E3"/>' +
+           '<g fill="#7CC46A"><path d="M60 50 Q86 38 98 60 Q92 82 70 84 Q50 90 46 70 Q44 56 60 50 Z"/>' +
+           '<path d="M112 90 Q142 82 154 104 Q152 134 126 142 Q106 152 102 128 Q98 106 112 90 Z"/>' +
+           '<path d="M62 118 Q80 116 82 136 Q76 154 60 148 Q50 134 62 118 Z"/></g>' +
+           '<path d="M58 44 Q40 60 36 84" fill="none" stroke="#BDE6FA" stroke-width="7" stroke-linecap="round"/>',
+    fire: '<path d="M100 18 Q156 76 146 128 Q138 176 100 180 Q62 176 54 128 Q50 92 80 64 Q82 96 98 104 Q88 64 100 18 Z" fill="#FF7A2A"/>' +
+          '<path d="M100 96 Q128 126 120 150 Q112 166 100 166 Q88 166 80 150 Q74 128 100 96 Z" fill="#FFD166"/>',
+    ice: '<g stroke="#BDE3F7" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none">' +
+         '<path d="M100 20 V180 M30.7 60 L169.3 140 M30.7 140 L169.3 60"/>' +
+         snowArm + '<g transform="rotate(60 100 100)">' + snowArm + '</g><g transform="rotate(120 100 100)">' + snowArm + "</g></g>",
+    emerald: '<path d="M70 30 H130 L165 65 V135 L130 170 H70 L35 135 V65 Z" fill="#3DD68C"/>' +
+             '<path d="M84 60 H116 L136 80 V120 L116 140 H84 L64 120 V80 Z" fill="#8CEBBC"/>' +
+             '<path d="M70 30 L84 60 M130 30 L116 60 M165 65 L136 80 M165 135 L136 120 M130 170 L116 140 M70 170 L84 140 M35 135 L64 120 M35 65 L64 80" stroke="#1FA36B" stroke-width="5"/>',
+    ruby: '<path d="M100 22 L164 60 L164 140 L100 178 L36 140 L36 60 Z" fill="#E0245A"/>' +
+          '<path d="M100 62 L134 82 L134 118 L100 138 L66 118 L66 82 Z" fill="#FF7C9C"/>' +
+          '<path d="M100 22 V62 M164 60 L134 82 M164 140 L134 118 M100 178 V138 M36 140 L66 118 M36 60 L66 82" stroke="#B3123A" stroke-width="5"/>',
+    golden: '<path d="M30 150 L40 60 L75 100 L100 40 L125 100 L160 60 L170 150 Z" fill="#FFCC33"/>' +
+            '<rect x="30" y="140" width="140" height="26" rx="6" fill="#E8B020"/>' +
+            '<g fill="#FF4F7B"><circle cx="40" cy="58" r="11"/><circle cx="100" cy="38" r="11"/><circle cx="160" cy="58" r="11"/></g>',
+    diamond: '<path d="M58 56 H142 L176 94 L100 178 L24 94 Z" fill="#A8F0F5"/>' +
+             '<path d="M24 94 H176 M58 56 L78 94 L100 178 L122 94 L142 56 M78 94 L100 56 L122 94" fill="none" stroke="#5CC8F0" stroke-width="5" stroke-linejoin="round"/>'
+  };
+
+  // Longer quest = harder. Diamond is the longest.
+  var QUESTS = [
+    { id: "mystery", name: "Mystery Box",      len: 1,  color: "#B48CFF", blurb: "1 problem, a surprise quest animal. Once a day!" },
+    { id: "pick",    name: "Pick-a-Pet Quest", len: 8,  color: "#FFC145", blurb: "You pick the animal" },
+    { id: "water",   name: "Water Quest",      len: 10, color: "#5FC6E8", blurb: "Win a water animal" },
+    { id: "earth",   name: "Earth Quest",      len: 12, color: "#7CC46A", blurb: "Win an earth animal" },
+    { id: "fire",    name: "Fire Quest",      len: 14, color: "#FF8A3D", blurb: "Win a fire animal" },
+    { id: "ice",     name: "Ice Quest",        len: 18, color: "#BDE3F7", blurb: "Win an ice animal" },
+    { id: "emerald", name: "Emerald Quest",    len: 19, color: "#3DD68C", blurb: "Win an emerald animal" },
+    { id: "ruby",    name: "Ruby Quest",       len: 21, color: "#FF4F7B", blurb: "Win a ruby animal" },
+    { id: "golden",  name: "Golden Quest",     len: 23, color: "#FFCC33", blurb: "Win a golden animal" },
+    { id: "diamond", name: "Diamond Quest",    len: 25, color: "#A8F0F5", blurb: "Win a diamond animal" }
+  ];
+
+  var bag = [];
+
+  function nextAnimal() {
+    if (Math.random() < RARE_CHANCE) {
+      return COMMON + Math.floor(Math.random() * (ANIMALS.length - COMMON));
+    }
+    if (!bag.length) {                          // reshuffle once every common one has had a turn
+      bag = [];
+      for (var i = 0; i < COMMON; i++) bag.push(i);
+      for (var k = bag.length - 1; k > 0; k--) {
+        var j = Math.floor(Math.random() * (k + 1));
+        var t = bag[k]; bag[k] = bag[j]; bag[j] = t;
+      }
+    }
+    return bag.pop();
+  }
+
+  function setBackground(inner, rare) {
+    el.bg.innerHTML = '<svg class="enter" viewBox="0 0 200 200">' + inner + "</svg>";
+    el.bg.classList.toggle("rare", !!rare);
+    el.rarity.classList.toggle("hidden", !rare);
+    var svg = el.bg.querySelector("svg");
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { svg.classList.remove("enter"); });
+    });
+  }
+
+  function swapAnimal() {
+    if (quest) { showing = -1; return; }     // the quest emblem stays put
+    showing = nextAnimal();
+    setBackground(ANIMALS[showing], isRare(showing));
+  }
+
+  /* ---------- the backpack ---------- */
+
+  function caughtCount() {
+    return Object.keys(state.caught).filter(function (n) { return state.caught[n] > 0; }).length;
+  }
+
+  function renderBag() {
+    el.bagCount.textContent = caughtCount() + "/" + COLLECTIBLES.length;
+  }
+
+  // Fly an animal from where it is on screen into the backpack button.
+  function flyToBag(idx, src) {
+    src = src || el.bg.querySelector("svg");
+    if (!src) { bagPop(); return; }
+
+    var a = src.getBoundingClientRect();
+    var b = el.bagBtn.getBoundingClientRect();
+
+    var f = document.createElement("div");
+    f.className = "flyer";
+    f.style.left = a.left + "px";
+    f.style.top = a.top + "px";
+    f.style.width = a.width + "px";
+    f.style.height = a.height + "px";
+    f.style.opacity = getComputedStyle(src).opacity;
+    f.innerHTML = '<svg viewBox="0 0 200 200">' + COLLECTIBLES[idx].svg + "</svg>";
+    document.body.appendChild(f);
+    src.style.visibility = "hidden";        // it left; the copy is the one flying
+
+    var dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    var dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        f.style.transform = "translate(" + dx + "px," + dy + "px) scale(.08)";
+        f.style.opacity = "0";
+      });
+    });
+
+    setTimeout(function () {
+      if (f.parentNode) f.parentNode.removeChild(f);
+      bagPop();
+    }, 560);
+  }
+
+  function bagPop() {
+    el.bagBtn.classList.remove("pop");
+    void el.bagBtn.offsetWidth;          // restart the animation
+    el.bagBtn.classList.add("pop");
+    renderBag();
+  }
+
+  function collect(idx, src) {
+    if (idx < 0) return false;
+    var name = COLLECTIBLES[idx].name;
+    var isNew = !state.caught[name];
+    state.caught[name] = (state.caught[name] || 0) + 1;
+    flyToBag(idx, src);
+    if (!el.collection.classList.contains("hidden")) renderCollection();
+    return isNew;
+  }
+
+  function renderCollection() {
+    var found = caughtCount();
+    el.collCount.textContent = found + " of " + COLLECTIBLES.length + " found";
+    el.collEmpty.classList.toggle("hidden", found > 0);
+
+    el.slots.innerHTML = "";
+    GROUPS.forEach(function (g) {
+      var E = ELEMENTS[g.key];
+      var h = document.createElement("h3");
+      h.className = "grp";
+      h.textContent = g.label;
+      if (E) h.style.color = E.color;
+      var grid = document.createElement("div");
+      grid.className = "slots-grid";
+
+      COLLECTIBLES.forEach(function (c) {
+        if (c.group !== g.key) return;
+        var n = state.caught[c.name] || 0;
+        var rare = c.group === "rare";
+        var d = document.createElement("div");
+        d.className = "slot" + (n ? "" : " locked") + (rare ? " rare" : "") + (E ? " elem" : "");
+        if (E) d.style.setProperty("--ec", E.color);
+        var tag = rare
+          ? '<div class="star">★ ' + (n > 1 ? "×" + n : "rare") + "</div>"
+          : '<div class="ct">' + (n > 1 ? "×" + n : "&nbsp;") + "</div>";
+        d.innerHTML = n
+          ? '<svg viewBox="0 0 200 200">' + c.svg + '</svg><div class="nm">' + c.label + "</div>" + tag
+          : '<div class="q">?</div><div class="nm">&nbsp;</div>' + tag;
+        grid.appendChild(d);
+      });
+
+      el.slots.appendChild(h);
+      el.slots.appendChild(grid);
+    });
+  }
+
+  /* ---------- question picking ---------- */
+
+  function key(a, b) { return a + "x" + b; }
+
+  function randomFact() {
+    var a = MIN + Math.floor(Math.random() * (MAX - MIN + 1));   // always all tables, 2–12
+    var b = MIN + Math.floor(Math.random() * (MAX - MIN + 1));
+    return { a: a, b: b };
+  }
+
+  function weakFacts() {
+    return Object.keys(state.weak).filter(function (k) { return state.weak[k] > 0; });
+  }
+
+  function nextQuestion() {
+    var pick = null;
+    var weak = weakFacts();
+
+    // Every few questions, bring back something he missed earlier.
+    if (weak.length && sinceReview >= 3 && Math.random() < 0.55) {
+      var k = weak[Math.floor(Math.random() * weak.length)];
+      var parts = k.split("x");
+      pick = { a: +parts[0], b: +parts[1] };
+      sinceReview = 0;
+    } else {
+      for (var i = 0; i < 12; i++) {
+        pick = randomFact();
+        if (key(pick.a, pick.b) !== lastKey) break;
+      }
+      sinceReview++;
+    }
+
+    current = { a: pick.a, b: pick.b, answer: pick.a * pick.b };
+    lastKey = key(pick.a, pick.b);
+    typed = "";
+    phase = "ask";
+    swapAnimal();
+    render();
+  }
+
+  /* ---------- rendering ---------- */
+
+  function render() {
+    el.eq.innerHTML = current.a + ' <span class="op">×</span> ' + current.b;
+    el.entry.textContent = typed === "" ? "?" : typed;
+    el.entry.className = "entry" + (typed === "" ? " empty" : "");
+    el.score.textContent = state.score;
+    el.streak.textContent = state.streak;
+    el.streakWrap.classList.toggle("hidden", state.streak < 3);
+    buildPad();
+  }
+
+  function buildPad() {
+    el.pad.innerHTML = "";
+
+    if (phase === "correcting") {
+      if (quest) {
+        var def = quest.def;
+        el.pad.appendChild(makeKey("Try again", "key go span2", function () { startQuest(def); }));
+        el.pad.appendChild(makeKey("Stop", "key util span1", endQuest));
+      } else {
+        el.pad.appendChild(makeKey("Got it", "key go wide", function () {
+          resetScreen();
+          nextQuestion();
+        }));
+      }
+      return;
+    }
+
+    ["1","2","3","4","5","6","7","8","9"].forEach(function (d) {
+      el.pad.appendChild(makeKey(d, "key", function () { type(d); }));
+    });
+    el.pad.appendChild(makeKey("⌫", "key util", erase));
+    el.pad.appendChild(makeKey("0", "key", function () { type("0"); }));
+    el.pad.appendChild(makeKey("✓", "key go", check));
+  }
+
+  function makeKey(label, cls, fn) {
+    var b = document.createElement("button");
+    b.className = cls;
+    b.textContent = label;
+    b.type = "button";
+    b.addEventListener("click", fn);
+    return b;
+  }
+
+  /* ---------- answering ---------- */
+
+  function type(d) {
+    if (phase !== "ask" || typed.length >= 3) return;
+    if (typed === "" && d === "0") return;
+    typed += d;
+    el.entry.textContent = typed;
+    el.entry.className = "entry";
+    el.note.textContent = "";
+    el.note.className = "note";
+  }
+
+  function erase() {
+    if (phase !== "ask") return;
+    typed = typed.slice(0, -1);
+    el.entry.textContent = typed === "" ? "?" : typed;
+    el.entry.className = "entry" + (typed === "" ? " empty" : "");
+  }
+
+  function check() {
+    if (phase !== "ask" || typed === "") return;
+    var k = key(current.a, current.b);
+
+    if (+typed === current.answer) {
+      state.score++;
+      state.streak++;
+      if (state.weak[k]) {
+        state.weak[k]--;
+        if (state.weak[k] <= 0) delete state.weak[k];
+      }
+      phase = "wait";                  // no double-tapping ✓ while the next one loads
+
+      if (quest) {
+        quest.done++;
+        renderTrack();
+        var left = quest.def.len - quest.done;
+        el.entry.className = "entry right";
+        el.note.className = "note win";
+        el.note.textContent = left === 0 ? "Quest beaten!" : left === 1 ? "One more!" : left + " to go";
+        save();
+        setTimeout(left === 0 ? winQuest : nextQuestion, left === 0 ? 700 : 520);
+        return;
+      }
+
+      var rare = isRare(showing);
+      var isNew = collect(showing);
+      el.entry.className = "entry right";
+      el.note.textContent = rare
+        ? "You caught the " + NAMES[showing].toLowerCase() + "!"
+        : isNew
+          ? NAMES[showing] + " jumped in your backpack!"
+          : (state.streak >= 5 ? state.streak + " in a row!" : "Yes!");
+      el.note.className = "note win";
+      save();
+      setTimeout(nextQuestion, rare ? 1100 : isNew ? 820 : 660);
+    } else {
+      state.streak = 0;
+      state.weak[k] = 2;              // he'll see this one twice more
+      el.entry.className = "entry wrong";
+      phase = "correcting";
+      el.fixLead.textContent = !quest ? "The answer is:"
+        : quest.def.id === "mystery" ? "Not quite. The answer is:" : "Quest over. The answer is:";
+      if (quest && el.track.children[quest.done]) el.track.children[quest.done].className = "miss";
+      el.fixAnswer.innerHTML = current.a + ' <span class="op">×</span> ' + current.b +
+                               ' = <span class="val">' + current.answer + "</span>";
+      el.stage.classList.add("hidden");
+      el.fix.classList.remove("hidden");
+      el.streakWrap.classList.add("hidden");
+      save();
+      buildPad();
+    }
+  }
+
+  /* ---------- quest flow ---------- */
+
+  function resetScreen() {
+    el.fix.classList.add("hidden");
+    el.reward.classList.add("hidden");
+    el.stage.classList.remove("hidden");
+    el.pad.classList.remove("hidden");
+    el.note.textContent = "";
+    el.note.className = "note";
+  }
+
+  function renderQuests() {
+    el.questList.innerHTML = "";
+    QUESTS.forEach(function (q) {
+      var sub = q.blurb;
+      if (ELEMENTS[q.id]) {
+        var total = 0, have = 0;
+        COLLECTIBLES.forEach(function (c) {
+          if (c.group === q.id) { total++; if (state.caught[c.name]) have++; }
+        });
+        sub += " (" + have + " of " + total + " found)";
+      }
+      var used = q.id === "mystery" && state.mysteryDay === today();
+      if (used) sub = "Opened today. Come back tomorrow!";
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "qcard";
+      b.disabled = used;
+      b.style.setProperty("--qc", q.color);
+      b.innerHTML = '<svg viewBox="0 0 200 200" aria-hidden="true">' + EMBLEMS[q.id] + "</svg>" +
+        '<span class="mid"><span class="qt">' + q.name + '</span><span class="qs">' + sub + "</span></span>" +
+        '<span class="len"><b>' + q.len + "</b><small>" + (q.len === 1 ? "problem" : "in a row") + "</small></span>";
+      b.addEventListener("click", function () { if (!b.disabled) startQuest(q); });
+      el.questList.appendChild(b);
+    });
+  }
+
+  function renderTrack() {
+    var len = quest.def.len;
+    el.qbCount.textContent = quest.done + "/" + len;
+    if (el.track.children.length !== len) {
+      el.track.innerHTML = "";
+      for (var i = 0; i < len; i++) el.track.appendChild(document.createElement("i"));
+    }
+    for (var j = 0; j < len; j++) el.track.children[j].className = j < quest.done ? "on" : "";
+  }
+
+  function startQuest(def) {
+    quest = { def: def, done: 0 };
+    showPanel("none");
+    el.questsBtn.classList.add("hidden");
+    el.questbar.classList.remove("hidden");
+    el.qbQuit.classList.remove("hidden");
+    el.questbar.style.setProperty("--qc", def.color);
+    el.qbIcon.innerHTML = '<svg viewBox="0 0 200 200" aria-hidden="true">' + EMBLEMS[def.id] + "</svg>";
+    el.qbName.textContent = def.name;
+    renderTrack();
+    setBackground(EMBLEMS[def.id], false);
+    resetScreen();
+    nextQuestion();
+  }
+
+  function endQuest() {
+    quest = null;
+    el.questbar.classList.add("hidden");
+    el.questsBtn.classList.remove("hidden");
+    resetScreen();
+    nextQuestion();
+  }
+
+  // Random animal of the quest's type, favoring ones he doesn't have yet.
+  function rollElement(key) {
+    var pool = [], fresh = [];
+    COLLECTIBLES.forEach(function (c, i) {
+      if (c.group !== key) return;
+      pool.push(i);
+      if (!state.caught[c.name]) fresh.push(i);
+    });
+    var from = fresh.length ? fresh : pool;
+    return from[Math.floor(Math.random() * from.length)];
+  }
+
+  // Local calendar date, e.g. "2026-10-14".
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  function claim(idx, src) {
+    if (phase !== "reward") return;
+    phase = "flying";
+    collect(idx, src);
+    save();
+    setTimeout(endQuest, 900);
+  }
+
+  function winQuest() {
+    var def = quest.def;
+    state.wins[def.id] = (state.wins[def.id] || 0) + 1;
+    save();
+
+    phase = "reward";
+    el.qbQuit.classList.add("hidden");
+    el.stage.classList.add("hidden");
+    el.pad.classList.add("hidden");
+    el.reward.classList.remove("hidden");
+    el.rewardTitle.textContent = def.id === "mystery" ? "The Mystery Box opened!" : def.name + " beaten!";
+    el.rewardBody.innerHTML = "";
+
+    if (def.id === "mystery") {
+      state.mysteryDay = today();
+      save();
+      var pool = [];
+      COLLECTIBLES.forEach(function (c, i) { if (ELEMENTS[c.group]) pool.push(i); });
+      var mi = pool[Math.floor(Math.random() * pool.length)];
+      var mc = COLLECTIBLES[mi];
+      el.rewardSub.textContent = state.caught[mc.name] ? "You got another one!" : "You got a new animal!";
+      var mprize = document.createElement("div");
+      mprize.className = "prize";
+      mprize.innerHTML = '<svg viewBox="0 0 200 200">' + mc.svg + '</svg><div class="pn">' + mc.name + "</div>";
+      el.rewardBody.appendChild(mprize);
+      el.rewardBody.appendChild(makeKey("Put it in my backpack", "key go claim", function () {
+        claim(mi, mprize.querySelector("svg"));
+      }));
+    } else if (def.id === "pick") {
+      var rareUsed = state.rarePickDay === today();
+      el.rewardSub.textContent = rareUsed
+        ? "Pick an animal. You already picked a rare one today."
+        : "Pick any animal. You can pick 1 rare animal a day.";
+      var grid = document.createElement("div");
+      grid.className = "pickgrid";
+      COLLECTIBLES.forEach(function (c, i) {
+        if (c.group !== "animals" && c.group !== "rare") return;
+        var rare = c.group === "rare";
+        var n = state.caught[c.name] || 0;
+        var b = document.createElement("button");
+        b.type = "button";
+        if (rare) b.className = "rare";
+        var st = n ? '<div class="st">have ×' + n + "</div>" : '<div class="st new">new!</div>';
+        if (rare && rareUsed) { b.disabled = true; st = '<div class="st wait">tomorrow</div>'; }
+        b.innerHTML = '<svg viewBox="0 0 200 200">' + c.svg + '</svg><div class="nm">' + c.label + "</div>" + st;
+        b.addEventListener("click", function () {
+          if (b.disabled) return;
+          if (rare) state.rarePickDay = today();
+          claim(i, b.querySelector("svg"));
+        });
+        grid.appendChild(b);
+      });
+      el.rewardBody.appendChild(grid);
+    } else {
+      var idx = rollElement(def.id);
+      var c = COLLECTIBLES[idx];
+      el.rewardSub.textContent = state.caught[c.name] ? "You won another one!" : "You won a new animal!";
+      var prize = document.createElement("div");
+      prize.className = "prize";
+      prize.innerHTML = '<svg viewBox="0 0 200 200">' + c.svg + '</svg><div class="pn">' + c.name + "</div>";
+      var go = makeKey("Put it in my backpack", "key go claim", function () {
+        claim(idx, prize.querySelector("svg"));
+      });
+      el.rewardBody.appendChild(prize);
+      el.rewardBody.appendChild(go);
+    }
+  }
+
+  el.qbQuit.addEventListener("click", function () {
+    if (phase === "reward" || phase === "flying") return;
+    endQuest();
+  });
+
+  /* ---------- panels ---------- */
+
+  function showPanel(which) {
+    el.quests.classList.toggle("hidden", which !== "quests");
+    el.collection.classList.toggle("hidden", which !== "bag");
+    document.getElementById("app").classList.toggle("panel-open", which !== "none");
+    el.questsBtn.textContent = which === "quests" ? "Done" : "Quests";
+    if (which === "bag") renderCollection();
+    if (which === "quests") renderQuests();
+  }
+
+  el.questsBtn.addEventListener("click", function () {
+    showPanel(el.quests.classList.contains("hidden") ? "quests" : "none");
+  });
+
+  el.bagBtn.addEventListener("click", function () {
+    showPanel(el.collection.classList.contains("hidden") ? "bag" : "none");
+  });
+
+  /* ---------- physical keyboard, for a laptop ---------- */
+
+  document.addEventListener("keydown", function (e) {
+    if (document.getElementById("app").classList.contains("panel-open")) return;
+    if (phase === "correcting") {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.pad.firstChild.click(); }
+      return;
+    }
+    if (phase === "reward") {
+      var btn = el.rewardBody.querySelector(".claim");
+      if (btn && e.key === "Enter") { e.preventDefault(); btn.click(); }
+      return;
+    }
+    if (e.key >= "0" && e.key <= "9") type(e.key);
+    else if (e.key === "Backspace") { e.preventDefault(); erase(); }
+    else if (e.key === "Enter") check();
+  });
+
+  /* ---------- start ---------- */
+
+  renderBag();
+  nextQuestion();
+
+  load().then(function (saved) {
+    if (!saved) return;
+    if (saved.weak && typeof saved.weak === "object") {
+      // drop any old ×1 facts left over from before
+      Object.keys(saved.weak).forEach(function (k) {
+        var p = k.split("x");
+        if (+p[0] >= MIN && +p[1] >= MIN) state.weak[k] = saved.weak[k];
+      });
+    }
+    if (saved.caught && typeof saved.caught === "object") state.caught = saved.caught;
+    if (saved.wins && typeof saved.wins === "object") state.wins = saved.wins;
+    if (typeof saved.rarePickDay === "string") state.rarePickDay = saved.rarePickDay;
+    if (typeof saved.mysteryDay === "string") state.mysteryDay = saved.mysteryDay;
+    renderBag();
+    if (!el.collection.classList.contains("hidden")) renderCollection();
+  });
+})();
+</script>
