@@ -3,6 +3,7 @@
 
 import { COLLECTIBLES, GROUPS, type Caught, type Group } from "../game/logic/collectibles";
 import { MAX, MIN } from "../game/logic/constants";
+import { statusFrom } from "../game/logic/mastery";
 
 export interface FactStat {
   a: number; b: number;
@@ -37,10 +38,8 @@ export function accuracy(s: FactStat): number {
  *    are right and quick but have fewer than 4 tries so far: not fluent *yet*.
  */
 export function classify(s: FactStat | undefined, thresholdMs: number): Status {
-  if (!s || s.recent === 0) return "unseen";
-  if (accuracy(s) < 0.8) return "shaky";
-  if (s.recentCorrect >= 4 && s.medianCorrectMs !== null && s.medianCorrectMs < thresholdMs) return "fluent";
-  return "slow";
+  // the same rule the game uses to pick problems
+  return s ? statusFrom(s.recent, s.recentCorrect, s.medianCorrectMs, thresholdMs) : "unseen";
 }
 
 export const FACTORS: readonly number[] = Array.from({ length: MAX - MIN + 1 }, (_, i) => MIN + i);

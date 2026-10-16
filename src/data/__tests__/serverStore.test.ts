@@ -21,14 +21,14 @@ describe("mergeSaved", () => {
       { owner: "p", table: "game_state", key: "c1", row: { child_id: "c1", review_pile: { "7x8": 2 } } },
       { owner: "p", table: "game_state", key: "c1", row: { child_id: "c1", review_pile: { "7x8": 1 } } },
     ];
-    const s = mergeSaved({ reviewPile: { "9x9": 2 }, caught: { cat: 2, owl: 1 }, recentDaily: [] }, null, pending, "c1", "UTC", now);
+    const s = mergeSaved({ recentTries: [], reviewPile: { "9x9": 2 }, caught: { cat: 2, owl: 1 }, recentDaily: [] }, null, pending, "c1", "UTC", now);
     expect(s.caught).toEqual({ cat: 3, owl: 1 });
     expect(s.weak).toEqual({ "7x8": 1 });
   });
 
   it("works out today's Mystery Box and rare pick in the family time zone", () => {
     const server = {
-      reviewPile: {}, caught: {},
+      recentTries: [], reviewPile: {}, caught: {},
       recentDaily: [
         { collectibleId: "fire-fox", source: "mystery" as const, createdAt: "2026-10-15T06:00:00Z" },   // Oct 14, 11pm in LA
         { collectibleId: "axolotl", source: "pick" as const, createdAt: "2026-10-15T16:00:00Z" },       // Oct 15, 9am in LA
@@ -42,15 +42,29 @@ describe("mergeSaved", () => {
   });
 
   it("a regular Pick-a-Pet pick doesn't use up the rare pick", () => {
-    const s = mergeSaved({ reviewPile: {}, caught: {}, recentDaily: [{ collectibleId: "cat", source: "pick", createdAt: now.toISOString() }] },
+    const s = mergeSaved({ recentTries: [], reviewPile: {}, caught: {}, recentDaily: [{ collectibleId: "cat", source: "pick", createdAt: now.toISOString() }] },
                          null, [], "c1", "UTC", now);
     expect(s.rarePickDay).toBe("");
+  });
+
+  it("builds each fact's last 5 tries from the server plus this device's unsent answers", () => {
+    const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 12, m)).toISOString();
+    const server = {
+      reviewPile: {}, caught: {}, recentDaily: [],
+      recentTries: [1, 2, 3, 4].map((m) => ({ a: 7, b: 8, correct: m !== 2, ms: 1000 * m, at: at(m) })),
+    };
+    const pending: OutboxItem[] = [5, 6].map((m) => ({
+      owner: "p", table: "attempts" as const, key: "a" + m,
+      row: { child_id: "c1", a: 7, b: 8, correct: true, response_ms: 1000 * m, created_at: at(m) },
+    }));
+    const s = mergeSaved(server, null, pending, "c1", "UTC", now);
+    expect(s.recent).toEqual({ "7x8": [[0, 2000], [1, 3000], [1, 4000], [1, 5000], [1, 6000]] });
   });
 
   it("uses the device cache when the server can't be reached", () => {
     const cache = { weak: { "3x4": 2 }, caught: { cat: 1 }, rarePickDay: "", mysteryDay: "2026-10-15" };
     expect(mergeSaved(null, cache, [], "c1", "UTC", now)).toEqual(cache);
-    expect(mergeSaved(null, null, [], "c1", "UTC", now)).toEqual(empty);
+    expect(mergeSaved(null, null, [], "c1", "UTC", now)).toEqual({ ...empty, recent: {} });
   });
 });
 

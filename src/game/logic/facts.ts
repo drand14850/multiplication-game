@@ -24,12 +24,34 @@ export function newPicker(): PickerState {
   return { sinceReview: 0, lastKey: "" };
 }
 
+/** Relative chance of each fact on a random pick (adaptive picking). */
+export type FactWeight = (a: number, b: number) => number;
+
+/** One weighted draw over all 121 facts, never the previous problem. One rng() call. */
+export function weightedFact(rng: Rng, weight: FactWeight, lastKey: string): Fact {
+  const facts: [Fact, number][] = [];
+  let total = 0;
+  for (let a = MIN; a <= MAX; a++) {
+    for (let b = MIN; b <= MAX; b++) {
+      const w = factKey(a, b) === lastKey ? 0 : Math.max(0, weight(a, b));
+      if (w > 0) { facts.push([{ a, b }, w]); total += w; }
+    }
+  }
+  let r = rng() * total;
+  for (const [f, w] of facts) {
+    if ((r -= w) < 0) return f;
+  }
+  return facts[facts.length - 1][0];
+}
+
 /**
  * The reference nextQuestion() picking rule. Mutates `picker`.
  * Every few questions, bring back something he missed earlier. A review pick may
  * repeat the previous problem (known quirk, kept on purpose).
+ * With `weight`, the random (non-review) pick leans toward weaker facts; without it,
+ * picking is exactly the reference's.
  */
-export function pickNextFact(pile: ReviewPile, picker: PickerState, rng: Rng): { fact: Fact; wasReview: boolean } {
+export function pickNextFact(pile: ReviewPile, picker: PickerState, rng: Rng, weight?: FactWeight): { fact: Fact; wasReview: boolean } {
   let pick: Fact = { a: MIN, b: MIN };
   let wasReview = false;
   const weak = owedFacts(pile);
@@ -40,6 +62,9 @@ export function pickNextFact(pile: ReviewPile, picker: PickerState, rng: Rng): {
     pick = { a: +parts[0], b: +parts[1] };
     picker.sinceReview = 0;
     wasReview = true;
+  } else if (weight) {
+    pick = weightedFact(rng, weight, picker.lastKey);
+    picker.sinceReview++;
   } else {
     for (let i = 0; i < NO_REPEAT_TRIES; i++) {
       pick = randomFact(rng);

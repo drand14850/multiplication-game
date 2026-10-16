@@ -120,7 +120,7 @@ export function App({ backend }: { backend: Backend }) {
     if (kidMenu) return <KidMenu name={kid.name} avatar={kid.avatar} onPlay={() => setKidMenu(false)} onSignOut={signOut} />;
     return (
       <ChildGame key={kid.childId} backend={backend} queue={queue} child={{ id: kid.childId, name: kid.name, avatar: kid.avatar }}
-                 timeZone={kid.timeZone} onSwitch={() => setKidMenu(true)} />
+                 timeZone={kid.timeZone} fluencyMs={kid.fluencyMs} onSwitch={() => setKidMenu(true)} />
     );
   }
 

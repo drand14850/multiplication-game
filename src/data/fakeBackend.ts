@@ -96,7 +96,7 @@ export class FakeBackend implements Backend {
   async kidMe(): Promise<KidMe | null> {
     const c = this.children.find((k) => k.id === this.linked);
     return c && this.session?.anonymous
-      ? { childId: c.id, name: c.name, avatar: c.avatar, username: c.username ?? "", timeZone: this.settings.timeZone }
+      ? { childId: c.id, name: c.name, avatar: c.avatar, username: c.username ?? "", timeZone: this.settings.timeZone, fluencyMs: this.settings.fluencyMs }
       : null;
   }
 
@@ -182,7 +182,18 @@ export class FakeBackend implements Backend {
       if (r.source === "mystery" || r.source === "pick") recentDaily.push({ collectibleId: id, source: r.source, createdAt: r.created_at as string });
     }
     const gs = this.rows.game_state.get(childId);
-    return { reviewPile: (gs?.review_pile as Record<string, number>) ?? {}, caught, recentDaily };
+    // each fact's last 5 tries, oldest first
+    const byFact = new Map<string, Row[]>();
+    for (const r of this.rows.attempts.values()) {
+      if (r.child_id !== childId) continue;
+      const k = r.a + "x" + r.b;
+      if (!byFact.has(k)) byFact.set(k, []);
+      byFact.get(k)!.push(r);
+    }
+    const recentTries = [...byFact.values()].flatMap((rows) =>
+      rows.sort((x, y) => String(x.created_at).localeCompare(String(y.created_at))).slice(-5)
+        .map((r) => ({ a: r.a as number, b: r.b as number, correct: r.correct as boolean, ms: r.response_ms as number, at: r.created_at as string })));
+    return { reviewPile: (gs?.review_pile as Record<string, number>) ?? {}, caught, recentDaily, recentTries };
   }
 
   sender(): Sender {

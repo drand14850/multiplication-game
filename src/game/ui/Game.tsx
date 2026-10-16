@@ -7,8 +7,14 @@ import { GameDriver } from "./driver";
 import { Background, FixCard, Keypad, QuestBar, RewardView, Stage, Strip, type Player } from "./parts";
 import { BackpackPanel, QuestsPanel } from "./panels";
 
-export function Game({ store, timeZone, player }: { store: GameStore; timeZone?: string; player?: Player }) {
-  const [driver] = useState(() => new GameDriver(store, timeZone));
+/**
+ * adaptive (default on): problems lean toward facts this kid doesn't know yet, using
+ * fluencyMs as the "knows it" threshold. Off for the parity check against the reference.
+ */
+export function Game({ store, timeZone, player, adaptive = true, fluencyMs = 3000 }: {
+  store: GameStore; timeZone?: string; player?: Player; adaptive?: boolean; fluencyMs?: number;
+}) {
+  const [driver] = useState(() => new GameDriver(store, timeZone, adaptive ? { fluencyMs } : null));
   useSyncExternalStore(driver.subscribe, driver.getVersion);
   useEffect(() => driver.attach(), [driver]);
   const bagRef = driver.setBagButton;

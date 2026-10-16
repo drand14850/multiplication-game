@@ -13,8 +13,9 @@ function within<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([p.catch(() => null), new Promise<null>((res) => setTimeout(() => res(null), ms))]);
 }
 
-export function ChildGame({ backend, queue, child, timeZone, onSwitch }: {
-  backend: Backend; queue: WriteQueue; child: { id: string; name: string; avatar: string }; timeZone?: string; onSwitch: () => void;
+export function ChildGame({ backend, queue, child, timeZone, fluencyMs, onSwitch }: {
+  backend: Backend; queue: WriteQueue; child: { id: string; name: string; avatar: string };
+  timeZone?: string; fluencyMs?: number; onSwitch: () => void;
 }) {
   const [store, setStore] = useState<ServerStore | null>(null);
 
@@ -34,6 +35,6 @@ export function ChildGame({ backend, queue, child, timeZone, onSwitch }: {
   }, [backend, queue, child.id, timeZone]);
 
   if (!store) return <div className="screen" aria-busy="true" />;
-  return <Game store={store} timeZone={timeZone}
+  return <Game store={store} timeZone={timeZone} fluencyMs={fluencyMs}
                player={{ name: child.name, avatar: child.avatar, onSwitch }} />;
 }

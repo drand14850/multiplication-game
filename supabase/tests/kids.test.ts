@@ -224,6 +224,36 @@ describe("grown-up side", () => {
   });
 });
 
+describe("adaptive picking data", () => {
+  it("a kid's device gets its own facts' last 5 tries, oldest first, and the family's threshold", async () => {
+    const dev = await device();
+    const kid = (await signUp(dev, codeA, "adapt_kid", "abcd")).child_id!;
+    await asUser(db, PARENT_A, (tx) => tx.query("update parent_settings set fluency_ms = 2500"));
+    await asUser(db, dev, async (tx) => {
+      for (let i = 0; i < 7; i++) {
+        await tx.query(
+          "insert into attempts (id, child_id, a, b, given_answer, correct, response_ms, mode, created_at) values ($1, $2, 7, 8, 56, $3, $4, 'practice', now() - make_interval(mins => $5))",
+          [uuid(), kid, i % 3 !== 0, 1000 + i, 10 - i]);
+      }
+    });
+    const rows = await asUser(db, dev, async (tx) => (await tx.query<{ response_ms: number }>("select * from fact_recent($1)", [kid])).rows);
+    expect(rows.map((r) => r.response_ms)).toEqual([1002, 1003, 1004, 1005, 1006]);
+    const me = await asUser(db, dev, async (tx) => (await tx.query<{ fluency_ms: number }>("select * from kid_me()")).rows[0]);
+    expect(me.fluency_ms).toBe(2500);
+  });
+
+  it("nobody else's tries", async () => {
+    const mine = await device();
+    const kid = (await signUp(mine, codeA, "private_kid", "abcd")).child_id!;
+    await attempt(mine, kid);
+    const other = await device();
+    await signUp(other, codeB, "other_kid", "abcd");
+    expect(await asUser(db, other, async (tx) => (await tx.query("select * from fact_recent($1)", [kid])).rows)).toEqual([]);
+    expect(await asUser(db, PARENT_B, async (tx) => (await tx.query("select * from fact_recent($1)", [kid])).rows)).toEqual([]);
+    expect((await asUser(db, PARENT_A, async (tx) => (await tx.query("select * from fact_recent($1)", [kid])).rows))).toHaveLength(1);
+  });
+});
+
 describe("progress carried over from playing without an account", () => {
   it("'import' catches skip the once-a-day rules", async () => {
     const dev = await device();

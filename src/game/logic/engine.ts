@@ -6,7 +6,8 @@
 import { isRare, nextAnimal } from "./animalBag";
 import { BY_ID, COLLECTIBLES, caughtCount, isElementGroup, type Caught } from "./collectibles";
 import { DELAY, MAX_DIGITS } from "./constants";
-import { factKey, newPicker, pickNextFact, type PickerState } from "./facts";
+import { factKey, newPicker, pickNextFact, type FactWeight, type PickerState } from "./facts";
+import { addTry, cleanRecent, factWeight, type Recent } from "./mastery";
 import { questById, type QuestDef, type QuestId } from "./quests";
 import { cleanLoadedPile, onCorrect, onMiss, type ReviewPile } from "./reviewPile";
 import { rollElement, rollMystery } from "./rewards";
@@ -22,6 +23,8 @@ export interface Saved {
   caught: Caught;
   rarePickDay: string;
   mysteryDay: string;
+  /** Last 5 tries per fact, for adaptive picking (not in the reference). */
+  recent?: Recent;
 }
 
 export interface Problem { a: number; b: number; answer: number; wasReview: boolean; seq: number }
@@ -62,9 +65,12 @@ export interface EngineCtx {
   rng: Rng;
   today: () => string;   // "YYYY-MM-DD" in the family's time zone
   newId: () => string;   // uuid for quest runs
+  /** Adaptive picking: lean toward the facts this kid doesn't know yet. Absent: the reference's uniform picking. */
+  adaptive?: { fluencyMs: number };
 }
 
 export interface EngineState extends Saved {
+  recent: Recent;
   score: number;
   streak: number;
   scoreShown: number;     // the strip only updates when the next problem renders (reference render())
@@ -102,6 +108,7 @@ export class GameEngine {
     }
     this.s = {
       weak: cleanLoadedPile(saved?.weak),
+      recent: cleanRecent(saved?.recent),
       caught,
       rarePickDay: typeof saved?.rarePickDay === "string" ? saved.rarePickDay : "",
       mysteryDay: typeof saved?.mysteryDay === "string" ? saved.mysteryDay : "",
@@ -142,7 +149,9 @@ export class GameEngine {
   snapshot(): Saved {
     const caught = { ...this.s.caught };
     if (this.s.pendingRewardId) caught[this.s.pendingRewardId] = (caught[this.s.pendingRewardId] || 0) + 1;
-    return { weak: { ...this.s.weak }, caught, rarePickDay: this.s.rarePickDay, mysteryDay: this.s.mysteryDay };
+    const recent: Recent = {};
+    for (const [k, v] of Object.entries(this.s.recent)) recent[k] = v.map((t) => [t[0], t[1]]);
+    return { weak: { ...this.s.weak }, caught, rarePickDay: this.s.rarePickDay, mysteryDay: this.s.mysteryDay, recent };
   }
 
   private save(): void { this.emit({ type: "save", snapshot: this.snapshot() }); }
@@ -151,7 +160,7 @@ export class GameEngine {
 
   nextQuestion(): void {
     const s = this.s;
-    const { fact, wasReview } = pickNextFact(s.weak, s.picker, this.ctx.rng);
+    const { fact, wasReview } = pickNextFact(s.weak, s.picker, this.ctx.rng, this.weight());
     s.current = { a: fact.a, b: fact.b, answer: fact.a * fact.b, wasReview, seq: ++this.seq };
     s.typed = "";
     s.phase = "ask";
@@ -159,6 +168,14 @@ export class GameEngine {
     s.scoreShown = s.score;
     s.streakShown = s.streak;
     this.swapAnimal();
+  }
+
+  /** Adaptive weights, once there's some history (with none, picking stays exactly the reference's). */
+  private weight(): FactWeight | undefined {
+    const ad = this.ctx.adaptive;
+    if (!ad || !Object.keys(this.s.recent).length) return undefined;
+    const recent = this.s.recent;
+    return (a, b) => factWeight(recent, factKey(a, b), ad.fluencyMs);
   }
 
   private swapAnimal(): void {
@@ -193,6 +210,7 @@ export class GameEngine {
     const k = factKey(cur.a, cur.b);
     const given = +s.typed;
     const correct = given === cur.answer;
+    addTry(s.recent, k, correct, responseMs);
 
     this.emit({
       type: "attempt", a: cur.a, b: cur.b, givenAnswer: given, correct, responseMs,

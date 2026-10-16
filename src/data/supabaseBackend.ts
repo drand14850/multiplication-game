@@ -94,8 +94,8 @@ export class SupabaseBackend implements Backend {
   async kidMe(): Promise<KidMe | null> {
     const { data, error } = await this.sb.rpc("kid_me");
     fail(error);
-    const r = ((data ?? []) as { child_id: string; name: string; avatar: string; username: string; time_zone: string }[])[0];
-    return r ? { childId: r.child_id, name: r.name, avatar: r.avatar, username: r.username, timeZone: r.time_zone } : null;
+    const r = ((data ?? []) as { child_id: string; name: string; avatar: string; username: string; time_zone: string; fluency_ms: number }[])[0];
+    return r ? { childId: r.child_id, name: r.name, avatar: r.avatar, username: r.username, timeZone: r.time_zone, fluencyMs: r.fluency_ms ?? 3000 } : null;
   }
 
   async importGuest(childId: string, saved: Saved): Promise<void> {
@@ -186,13 +186,14 @@ export class SupabaseBackend implements Backend {
 
   async loadChildState(childId: string): Promise<ServerChildState> {
     const since = new Date(Date.now() - 2 * 86_400_000).toISOString();
-    const [gs, bp, daily] = await Promise.all([
+    const [gs, bp, daily, tries] = await Promise.all([
       this.sb.from("game_state").select("review_pile").eq("child_id", childId).maybeSingle(),
       this.sb.from("backpack").select("collectible_id, n").eq("child_id", childId),
       this.sb.from("catches").select("collectible_id, source, created_at").eq("child_id", childId)
         .in("source", ["mystery", "pick"]).gte("created_at", since),
+      this.sb.rpc("fact_recent", { p_child: childId }),
     ]);
-    fail(gs.error); fail(bp.error); fail(daily.error);
+    fail(gs.error); fail(bp.error); fail(daily.error); fail(tries.error);
     const caught: Record<string, number> = {};
     for (const r of (bp.data ?? []) as { collectible_id: string; n: number }[]) caught[r.collectible_id] = r.n;
     return {
@@ -200,6 +201,8 @@ export class SupabaseBackend implements Backend {
       caught,
       recentDaily: ((daily.data ?? []) as { collectible_id: string; source: "mystery" | "pick"; created_at: string }[])
         .map((r) => ({ collectibleId: r.collectible_id, source: r.source, createdAt: r.created_at })),
+      recentTries: ((tries.data ?? []) as { a: number; b: number; correct: boolean; response_ms: number; created_at: string }[])
+        .map((r) => ({ a: r.a, b: r.b, correct: r.correct, ms: r.response_ms, at: r.created_at })),
     };
   }
 

@@ -4,6 +4,7 @@
 import { BY_ID } from "../game/logic/collectibles";
 import { today } from "../game/logic/day";
 import type { Effect, Saved } from "../game/logic/engine";
+import { addTry, type Recent } from "../game/logic/mastery";
 import { cleanLoadedPile } from "../game/logic/reviewPile";
 import type { ServerChildState } from "./backend";
 import type { GameStore } from "./gameStore";
@@ -32,29 +33,37 @@ function writeCache(childId: string, s: Saved): void {
  */
 export function mergeSaved(server: ServerChildState | null, cache: Saved | null, pending: OutboxItem[],
                            childId: string, timeZone: string | undefined, now = new Date()): Saved {
-  if (!server) return cache ?? { weak: {}, caught: {}, rarePickDay: "", mysteryDay: "" };
+  if (!server) return cache ?? { weak: {}, caught: {}, rarePickDay: "", mysteryDay: "", recent: {} };
 
   const mine = pending.filter((p) => p.row.child_id === childId);
   const caught = { ...server.caught };
   const daily: { id: string; source: string; at: string }[] =
     server.recentDaily.map((d) => ({ id: d.collectibleId, source: d.source, at: d.createdAt }));
   let weak = server.reviewPile;
+  // each fact's last 5 tries: the server's, then this device's unsent answers, in time order
+  const tries = server.recentTries.map((t) => ({ k: t.a + "x" + t.b, correct: t.correct, ms: t.ms, at: t.at }));
 
   for (const p of mine) {
     if (p.table === "catches") {
       const id = p.row.collectible_id as string;
       caught[id] = (caught[id] || 0) + 1;
       daily.push({ id, source: p.row.source as string, at: p.row.created_at as string });
+    } else if (p.table === "attempts") {
+      tries.push({ k: p.row.a + "x" + p.row.b, correct: !!p.row.correct, ms: Number(p.row.response_ms), at: String(p.row.created_at) });
     } else if (p.table === "game_state") {
       weak = p.row.review_pile as Record<string, number>;     // pending is oldest first: the last one wins
     }
   }
+
+  const recent: Recent = {};
+  for (const t of tries.sort((x, y) => x.at.localeCompare(y.at))) addTry(recent, t.k, t.correct, t.ms);
 
   const day = today(timeZone, now);
   const isToday = (at: string) => today(timeZone, new Date(at)) === day;
   return {
     weak: cleanLoadedPile(weak),
     caught,
+    recent,
     mysteryDay: daily.some((d) => d.source === "mystery" && isToday(d.at)) ? day : "",
     rarePickDay: daily.some((d) => d.source === "pick" && BY_ID.get(d.id)?.group === "rare" && isToday(d.at)) ? day : "",
   };

@@ -26,7 +26,7 @@ export interface ParentSettings {
 }
 
 /** The kid a device is signed in as. */
-export interface KidMe { childId: string; name: string; avatar: string; username: string; timeZone: string }
+export interface KidMe { childId: string; name: string; avatar: string; username: string; timeZone: string; fluencyMs: number }
 
 export type KidError =
   | "bad_family_code" | "username_taken" | "bad_username" | "password_too_short"
@@ -40,6 +40,8 @@ export interface ServerChildState {
   caught: Record<string, number>;          // collectible id -> times caught
   /** Mystery and Pick-a-Pet catches from the last two days, for the once-a-day rules. */
   recentDaily: { collectibleId: string; source: "mystery" | "pick"; createdAt: string }[];
+  /** Each fact's last 5 tries, oldest first, for adaptive problem picking. */
+  recentTries: { a: number; b: number; correct: boolean; ms: number; at: string }[];
 }
 
 export interface TrendDay { day: string; problems: number; correct: number; medianMs: number | null; sessions: number; minutes: number }
