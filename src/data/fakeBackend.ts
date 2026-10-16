@@ -1,7 +1,8 @@
 // In-memory Backend for UI tests. Mirrors the server rules that matter to the UI
 // (password check, PIN lockout after 5 wrong tries). Never imported by the app.
 
-import { BackendError, type Backend, type Child, type ParentSettings, type PinResult, type ServerChildState, type Session } from "./backend";
+import type { FactStat } from "../dashboard/logic";
+import { BackendError, type Backend, type Child, type HistoryRow, type ParentSettings, type PinResult, type QuestStat, type ServerChildState, type Session, type TrendDay } from "./backend";
 import type { Row, Sender, SendResult, Table } from "./writeQueue";
 
 export class FakeBackend implements Backend {
@@ -105,4 +106,14 @@ export class FakeBackend implements Backend {
       },
     };
   }
+
+  /* ---------- dashboard: canned answers tests can set ---------- */
+
+  dash: { facts: FactStat[]; trend: TrendDay[]; quests: QuestStat[]; streak: number; history: HistoryRow[] } =
+    { facts: [], trend: [], quests: [], streak: 0, history: [] };
+  async factStats() { return this.dash.facts; }
+  async dailyTrend() { return this.dash.trend; }
+  async questStats() { return this.dash.quests; }
+  async longestStreak() { return this.dash.streak; }
+  async factHistory() { return this.dash.history; }
 }

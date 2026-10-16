@@ -146,7 +146,7 @@ Make the dashboard readable on a phone too. Don't show children's data to anyone
 ### Phase 4 — Parent dashboard
 - Build the views above from `attempts`, `quest_runs` and `catches`. Do the heavy queries in SQL (views or RPCs), not by downloading every row.
 - Seed script (dev only): a fake child with about 2,000 attempts so the dashboard can be checked with realistic data.
-- 🔲 **Checkpoint 4:** screenshots of every dashboard view with the seed data, on phone and laptop widths. Hand-check a few numbers against raw rows.
+- ✅ **Checkpoint 4:** screenshots of every dashboard view with the seed data, on phone and laptop widths. Hand-check a few numbers against raw rows.
 
 ### Phase 5 — Deploy
 - Connect the repo to Vercel. Set the environment variables there. Add the Vercel URL to Supabase Auth's allowed redirect URLs.

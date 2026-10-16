@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient, type Session as SbSession } from "@supabase/supabase-js";
-import { BackendError, type Backend, type Child, type ParentSettings, type PinResult, type ServerChildState, type Session } from "./backend";
+import type { FactStat } from "../dashboard/logic";
+import { BackendError, type Backend, type Child, type HistoryRow, type ParentSettings, type PinResult, type QuestStat, type ServerChildState, type Session, type TrendDay } from "./backend";
 import type { Row, Sender, SendResult, Table } from "./writeQueue";
 
 interface ChildRow { id: string; name: string; avatar: string; has_pin: boolean }
@@ -135,6 +136,47 @@ export class SupabaseBackend implements Backend {
         return { ok: false, retry, error: res.error.message };
       },
     };
+  }
+
+  /* ---------- dashboard ---------- */
+
+  async factStats(childId: string, merge: boolean): Promise<FactStat[]> {
+    const { data, error } = await this.sb.rpc("fact_stats", { p_child: childId, p_merge: merge });
+    fail(error);
+    return ((data ?? []) as { a: number; b: number; total: number; recent: number; recent_correct: number;
+      median_correct_ms: number | null; median_all_ms: number | null; last_seen: string }[]).map((r) => ({
+      a: r.a, b: r.b, total: r.total, recent: r.recent, recentCorrect: r.recent_correct,
+      medianCorrectMs: r.median_correct_ms, medianAllMs: r.median_all_ms, lastSeen: r.last_seen,
+    }));
+  }
+
+  async dailyTrend(childId: string, days: number): Promise<TrendDay[]> {
+    const { data, error } = await this.sb.rpc("daily_trend", { p_child: childId, p_days: days });
+    fail(error);
+    return ((data ?? []) as { day: string; problems: number; correct: number; median_ms: number | null; sessions: number; minutes: number | string }[])
+      .map((r) => ({ day: String(r.day).slice(0, 10), problems: r.problems, correct: r.correct, medianMs: r.median_ms, sessions: r.sessions, minutes: Number(r.minutes) }));
+  }
+
+  async questStats(childId: string): Promise<QuestStat[]> {
+    const { data, error } = await this.sb.rpc("quest_stats", { p_child: childId });
+    fail(error);
+    return ((data ?? []) as { quest_id: string; runs: number; wins: number; best: number }[])
+      .map((r) => ({ questId: r.quest_id, runs: r.runs, wins: r.wins, best: r.best }));
+  }
+
+  async longestStreak(childId: string): Promise<number> {
+    const { data, error } = await this.sb.rpc("longest_streak", { p_child: childId });
+    fail(error);
+    return Number(data ?? 0);
+  }
+
+  async factHistory(childId: string, a: number, b: number, merge: boolean): Promise<HistoryRow[]> {
+    let q = this.sb.from("attempts").select("a, b, given_answer, correct, response_ms, mode, created_at").eq("child_id", childId);
+    q = merge && a !== b ? q.or(`and(a.eq.${a},b.eq.${b}),and(a.eq.${b},b.eq.${a})`) : q.eq("a", a).eq("b", b);
+    const { data, error } = await q.order("created_at", { ascending: false }).limit(30);
+    fail(error);
+    return ((data ?? []) as { a: number; b: number; given_answer: number; correct: boolean; response_ms: number; mode: string; created_at: string }[])
+      .map((r) => ({ a: r.a, b: r.b, given: r.given_answer, correct: r.correct, ms: r.response_ms, mode: r.mode, at: r.created_at }));
   }
 
   async updateSettings(patch: Partial<ParentSettings>): Promise<void> {

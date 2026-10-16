@@ -14,6 +14,7 @@ The files in `supabase/migrations/` run in name order. Use either option.
 1. `20261015000001_tables_and_rls.sql`
 2. `20261015000002_functions.sql`
 3. `20261015000003_seed_collectibles.sql`
+4. `20261015000004_dashboard.sql` (Phase 4: the dashboard's queries)
 
 **Option B, Supabase CLI:**
 
@@ -41,6 +42,14 @@ npm run dev
 ```
 
 Create an account, confirm the email, sign in, add a child, and play.
+
+## Optional: demo data for the dashboard (dev only)
+
+`supabase/seed/dev-seed.sql` adds a fake child, **Demo Kid (seed)**, with about 2,000 attempts over the last 30 days, quest runs, catches and a review pile, so the dashboard has something to show. Run it in the SQL editor after the migrations. It goes to the oldest parent account, and running it again replaces the demo child. To remove it:
+
+```sql
+delete from public.children where name = 'Demo Kid (seed)';
+```
 
 ## How the tests cover this without a project
 

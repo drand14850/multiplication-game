@@ -3,6 +3,7 @@
 
 import { useState, type FormEvent } from "react";
 import { AVATARS, type Backend, type Child, type ParentSettings } from "../data/backend";
+import { Dashboard } from "../dashboard/Dashboard";
 import { AnimalSvg, errorText } from "./common";
 
 const PIN_RE = /^[0-9]{4}$/;
@@ -15,7 +16,7 @@ export function ParentHome({ backend, kids, settings, onChanged, onDone, onSignO
   const [editing, setEditing] = useState<string | null>(null);
 
   return (
-    <div className="screen">
+    <div className="screen wide">
       <h1>Grown-ups</h1>
 
       <section className="card" aria-labelledby="kids-h">
@@ -37,7 +38,7 @@ export function ParentHome({ backend, kids, settings, onChanged, onDone, onSignO
 
       <section className="card" aria-labelledby="dash-h">
         <h2 id="dash-h">Progress</h2>
-        <p>The progress dashboard is coming soon. Every answer is already being saved for it.</p>
+        <Dashboard backend={backend} kids={kids} thresholdMs={settings?.fluencyMs ?? 3000} />
       </section>
 
       {settings && <SettingsCard backend={backend} settings={settings} onChanged={onChanged} />}

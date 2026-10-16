@@ -133,7 +133,7 @@ describe("grown-up area", () => {
     await user.click(within(form).getByRole("button", { name: "panda" }));
     await user.type(within(form).getByLabelText(/PIN/), "8642");
     await user.click(within(form).getByRole("button", { name: "Add child" }));
-    expect(await screen.findByText("Cleo")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Edit Cleo" })).toBeTruthy();
     expect(backend.children.find((c) => c.name === "Cleo")).toMatchObject({ avatar: "panda", hasPin: true });
     expect(JSON.stringify(localStorage)).not.toContain("8642");
     expect(JSON.stringify(sessionStorage)).not.toContain("8642");

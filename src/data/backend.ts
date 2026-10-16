@@ -1,3 +1,4 @@
+import type { FactStat } from "../dashboard/logic";
 import type { Sender } from "./writeQueue";
 
 // What the app needs from the server. SupabaseBackend is the real one; FakeBackend
@@ -27,6 +28,10 @@ export interface ServerChildState {
   recentDaily: { collectibleId: string; source: "mystery" | "pick"; createdAt: string }[];
 }
 
+export interface TrendDay { day: string; problems: number; correct: number; medianMs: number | null; sessions: number; minutes: number }
+export interface QuestStat { questId: string; runs: number; wins: number; best: number }
+export interface HistoryRow { a: number; b: number; given: number; correct: boolean; ms: number; mode: string; at: string }
+
 export interface Backend {
   getSession(): Promise<Session | null>;
   onAuthChange(cb: (s: Session | null) => void): () => void;
@@ -50,6 +55,14 @@ export interface Backend {
   loadChildState(childId: string): Promise<ServerChildState>;
   /** Sends write-queue batches under the signed-in parent's account. */
   sender(): Sender;
+
+  /* dashboard */
+  factStats(childId: string, merge: boolean): Promise<FactStat[]>;
+  dailyTrend(childId: string, days: number): Promise<TrendDay[]>;
+  questStats(childId: string): Promise<QuestStat[]>;
+  longestStreak(childId: string): Promise<number>;
+  /** The latest attempts at one fact (both orders when merged), newest first. */
+  factHistory(childId: string, a: number, b: number, merge: boolean): Promise<HistoryRow[]>;
 }
 
 
