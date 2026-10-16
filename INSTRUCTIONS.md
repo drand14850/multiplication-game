@@ -151,7 +151,7 @@ Make the dashboard readable on a phone too. Don't show children's data to anyone
 ### Phase 5 — Deploy
 - Connect the repo to Vercel. Set the environment variables there. Add the Vercel URL to Supabase Auth's allowed redirect URLs.
 - Smoke test on the live URL: sign up, create a child, play, win a quest, and check the dashboard.
-- 🔲 **Checkpoint 5:** live URL plus smoke-test results. Note anything still on the to-do list.
+- ✅ **Checkpoint 5:** live URL plus smoke-test results. Note anything still on the to-do list.
 
 ---
 
@@ -160,3 +160,15 @@ Make the dashboard readable on a phone too. Don't show children's data to anyone
 - Letting other families sign up publicly. Before opening it to other families, this needs a privacy review: it would be collecting data about other people's children under 13, which COPPA covers.
 - Leaderboards, chat, or anything social
 - Sound effects or new animals beyond the reference file (fine as later requests)
+
+---
+
+## Change after Phase 5: kid accounts (approved 2026-10-16)
+
+The parent-device flow ("Who's playing?", child PINs, the parent gate) is replaced, so a child can play at school without a grown-up logging them in:
+
+- **Play** with no account: progress is saved in that browser only; nothing goes to the server.
+- **Kid accounts**: a kid makes one with the family's **family code** (shown in the grown-up area) plus a username and password, or a parent creates it. They then sign in on any device. Progress from playing without an account comes along.
+- **Grown-ups** sign in with email to see the family code, their kids and their sign-ins, the dashboard and settings.
+- Accounts can't be made without a family code, so the site never stores data about children outside a family (see "Out of scope" on public sign-up).
+- Under the hood a kid's device uses an anonymous Supabase session linked to one child; row level security limits it to that child. Requires "Allow anonymous sign-ins" in Supabase. See migration 5.

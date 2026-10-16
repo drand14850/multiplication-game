@@ -113,3 +113,4 @@ See [`schema-proposal.sql`](schema-proposal.sql). Summary:
 3. **Fluency threshold**: one per parent (`parent_settings.fluency_ms`).
 4. **Inventory ⚠5 and ⚠6**: quest rewards are recorded at win time, and the client uses the family time zone for "today".
 5. All other ⚠ items in the inventory: the reference file's behavior is kept.
+6. **Superseded after Phase 5 (2026-10-16):** decision 2 (parent gate) and child PINs are replaced by kid accounts with family codes, so kids can sign in at school themselves. See the note at the end of INSTRUCTIONS.md and `supabase/migrations/20261016000005_kid_accounts.sql`.

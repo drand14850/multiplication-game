@@ -15,6 +15,7 @@ The files in `supabase/migrations/` run in name order. Use either option.
 2. `20261015000002_functions.sql`
 3. `20261015000003_seed_collectibles.sql`
 4. `20261015000004_dashboard.sql` (Phase 4: the dashboard's queries)
+5. `20261016000005_kid_accounts.sql` (kid accounts and family codes; removes PINs)
 
 **Option B, Supabase CLI:**
 
@@ -33,7 +34,8 @@ npx supabase db push
 ## 3. Auth settings
 
 - **Authentication → Providers → Email**: enabled. Keep "Confirm email" on.
-- **Authentication → URL Configuration**: Site URL `http://localhost:5173` for now. The Vercel URL is added in Phase 5.
+- **Authentication → URL Configuration**: Site URL is the live site, `https://multiplication-game-six.vercel.app`. Redirect URLs: that address with `/**`, plus `http://localhost:5173/**` for local development.
+- **Authentication → Sign In / Providers → User Signups**: **Allow anonymous sign-ins** on. Kid devices sign in this way and are then linked to one kid by their username and password.
 
 ## 4. Check it
 
