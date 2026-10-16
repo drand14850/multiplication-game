@@ -39,7 +39,7 @@ describe("migrations", () => {
   it("enable RLS on every public table", async () => {
     const { rows } = await db.query<{ relname: string; relrowsecurity: boolean }>(
       "select relname, relrowsecurity from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' order by relname");
-    expect(rows.length).toBe(8);
+    expect(rows.length).toBe(10);
     rows.forEach((r) => expect(r.relrowsecurity, r.relname).toBe(true));
   });
 
@@ -121,57 +121,12 @@ describe("RLS: parent A can't see or touch parent B's family", () => {
 
   it("deleting a child deletes all their data", async () => {
     const { c } = await seedFamily(A, "Temp");
-    await asUser(db, A, (tx) => tx.query("select set_child_pin($1, '1111')", [c]));
+    await asUser(db, A, (tx) => tx.query("select set_kid_login($1, 'temp_kid', 'secret1')", [c]));
     await asUser(db, A, (tx) => tx.query("delete from children where id = $1", [c]));
-    for (const t of ["attempts", "catches", "game_state", "quest_runs", "child_pins"]) {
+    for (const t of ["attempts", "catches", "game_state", "quest_runs", "kid_logins"]) {
       const { rows } = await db.query<{ n: number }>(`select count(*)::int as n from ${t} where child_id = $1`, [c]);
       expect(rows[0].n, t).toBe(0);
     }
-  });
-});
-
-describe("child PINs", () => {
-  it("are stored only as a bcrypt hash, never the PIN itself", async () => {
-    await asUser(db, A, (tx) => tx.query("select set_child_pin($1, '4321')", [childA]));
-    const { rows } = await db.query<{ pin_hash: string }>("select pin_hash from child_pins where child_id = $1", [childA]);
-    expect(rows[0].pin_hash).toMatch(/^\$2[aby]\$08\$/);
-    expect(rows[0].pin_hash).not.toContain("4321");
-    // the PIN appears nowhere else in the database either
-    const dump = await db.query<{ t: string }>(
-      "select row_to_json(c)::text as t from children c union all select row_to_json(s)::text from parent_settings s");
-    dump.rows.forEach((r) => expect(r.t).not.toContain("4321"));
-    const kid = await asUser(db, A, async (tx) => (await tx.query<{ has_pin: boolean }>("select has_pin from children where id = $1", [childA])).rows[0]);
-    expect(kid.has_pin).toBe(true);
-  });
-
-  it("can't be read by the browser, even by the child's own parent", async () => {
-    expect(await failure(asUser(db, A, (tx) => tx.query("select * from child_pins")))).toMatch(/permission denied/);
-    expect(await failure(asUser(db, A, (tx) => tx.query("update children set has_pin = false where id = $1", [childA])))).toMatch(/permission denied/);
-  });
-
-  it("verify the right PIN, reject a wrong one, and lock after 5 wrong tries", async () => {
-    const verify = (pin: string) => asUser(db, A, async (tx) =>
-      (await tx.query<{ ok: boolean }>("select verify_child_pin($1, $2) as ok", [childA, pin])).rows[0].ok);
-    expect(await verify("4321")).toBe(true);
-    for (let i = 0; i < 4; i++) expect(await verify("0000")).toBe(false);
-    expect(await verify("4321")).toBe(true);           // a right answer resets the count
-    for (let i = 0; i < 5; i++) expect(await verify("0000")).toBe(false);
-    expect(await failure(verify("4321"))).toMatch(/pin_locked/);
-  });
-
-  it("must be 4 digits, and only the child's parent can set or check it", async () => {
-    expect(await failure(asUser(db, A, (tx) => tx.query("select set_child_pin($1, '12a4')", [childA])))).toMatch(/pin_must_be_4_digits/);
-    expect(await failure(asUser(db, B, (tx) => tx.query("select set_child_pin($1, '9999')", [childA])))).toMatch(/not_found/);
-    expect(await failure(asUser(db, B, (tx) => tx.query("select verify_child_pin($1, '4321')", [childA])))).toMatch(/not_found/);
-    expect(await failure(asAnon(db, (tx) => tx.query("select verify_child_pin($1, '4321')", [childA])))).toMatch(/permission denied/);
-  });
-
-  it("can be removed", async () => {
-    const { c } = await seedFamily(A, "NoPin");
-    await asUser(db, A, (tx) => tx.query("select set_child_pin($1, '2222')", [c]));
-    await asUser(db, A, (tx) => tx.query("select set_child_pin($1, null)", [c]));
-    const ok = await asUser(db, A, async (tx) => (await tx.query<{ ok: boolean }>("select verify_child_pin($1, '') as ok", [c])).rows[0].ok);
-    expect(ok).toBe(true);
   });
 });
 

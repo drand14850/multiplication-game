@@ -79,3 +79,13 @@
 .avatars svg { width: 100%; height: auto; display: block; }
 
 .grownup-btn { align-self: center; }
+
+/* ---- front page and kid accounts ---- */
+.btn.big { font-size: 24px; padding: 18px 16px; }
+.screen p.small { font-size: 14px; }
+.landing-art { display: flex; justify-content: center; gap: 6px; }
+.landing-art svg { width: 84px; height: 84px; }
+.family-code {
+  font-size: 34px; font-weight: 700; letter-spacing: .08em; color: var(--amber);
+  font-variant-numeric: tabular-nums; user-select: all;
+}

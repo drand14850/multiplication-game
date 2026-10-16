@@ -15,7 +15,8 @@ create table auth.users (
   id                  uuid primary key,
   email               text,
   raw_user_meta_data  jsonb not null default '{}'::jsonb,
-  created_at          timestamptz not null default now()
+  created_at          timestamptz not null default now(),
+  is_anonymous        boolean not null default false
 );
 -- same contract as Supabase: the JWT's "sub" claim
 create function auth.uid() returns uuid language sql stable as $$

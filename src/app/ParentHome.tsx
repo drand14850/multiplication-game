@@ -1,39 +1,44 @@
-// The grown-up area (behind the parent gate): children, PINs, settings.
-// The dashboard views arrive in Phase 4.
+// The grown-up area: family code, kids and their sign-ins, the progress dashboard, settings.
 
 import { useState, type FormEvent } from "react";
 import { AVATARS, type Backend, type Child, type ParentSettings } from "../data/backend";
 import { Dashboard } from "../dashboard/Dashboard";
 import { AnimalSvg, errorText } from "./common";
 
-const PIN_RE = /^[0-9]{4}$/;
-
-export function ParentHome({ backend, kids, settings, onChanged, onDone, onSignOut }: {
+export function ParentHome({ backend, kids, settings, onChanged, onSignOut }: {
   backend: Backend; kids: Child[]; settings: ParentSettings | null;
-  onChanged: () => Promise<void>; onDone: () => void; onSignOut: () => void;
+  onChanged: () => Promise<void>; onSignOut: () => void;
 }) {
-  const [adding, setAdding] = useState(kids.length === 0);
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
 
   return (
     <div className="screen wide">
-      <h1>Grown-ups</h1>
+      <div className="row">
+        <h1 className="grow" style={{ textAlign: "left" }}>Grown-ups</h1>
+        <button type="button" className="btn quiet" onClick={onSignOut}>Sign out</button>
+      </div>
+
+      {settings && <FamilyCode backend={backend} code={settings.familyCode} onChanged={onChanged} />}
 
       <section className="card" aria-labelledby="kids-h">
-        <h2 id="kids-h">Children</h2>
-        {kids.length === 0 && <p>Add a child to get started.</p>}
+        <h2 id="kids-h">Kids</h2>
+        {kids.length === 0 && <p>No kids yet. They can make their own account with your family code, or you can add one here.</p>}
         {kids.map((k) => editing === k.id
           ? <ChildEditor key={k.id} backend={backend} child={k} onDone={async () => { setEditing(null); await onChanged(); }} />
           : (
             <div key={k.id} className="child-row">
               <AnimalSvg id={k.avatar} />
-              <div className="who"><b>{k.name}</b><small>{k.hasPin ? "Has a PIN" : "No PIN"}</small></div>
+              <div className="who">
+                <b>{k.name}</b>
+                <small>{k.username ? `Signs in as ${k.username}` : "No sign-in yet"}{k.devices ? ` · on ${k.devices} ${k.devices === 1 ? "device" : "devices"}` : ""}</small>
+              </div>
               <button type="button" className="btn quiet" onClick={() => setEditing(k.id)} aria-label={"Edit " + k.name}>Edit</button>
             </div>
           ))}
         {adding
-          ? <ChildForm backend={backend} onDone={async (made) => { setAdding(false); if (made) await onChanged(); }} canCancel={kids.length > 0} />
-          : <button type="button" className="btn quiet" onClick={() => setAdding(true)}>Add a child</button>}
+          ? <ChildForm backend={backend} onDone={async (made) => { setAdding(false); if (made) await onChanged(); }} />
+          : <button type="button" className="btn quiet" onClick={() => setAdding(true)}>Add a kid</button>}
       </section>
 
       <section className="card" aria-labelledby="dash-h">
@@ -42,12 +47,36 @@ export function ParentHome({ backend, kids, settings, onChanged, onDone, onSignO
       </section>
 
       {settings && <SettingsCard backend={backend} settings={settings} onChanged={onChanged} />}
-
-      <div className="row">
-        <button type="button" className="btn grow" onClick={onDone}>Done</button>
-        <button type="button" className="btn quiet" onClick={onSignOut}>Sign out</button>
-      </div>
     </div>
+  );
+}
+
+function FamilyCode({ backend, code, onChanged }: { backend: Backend; code: string; onChanged: () => Promise<void> }) {
+  const [confirm, setConfirm] = useState(false);
+  const [error, setError] = useState("");
+  async function renew() {
+    try {
+      await backend.newFamilyCode();
+      setConfirm(false);
+      await onChanged();
+    } catch (e) {
+      setError(errorText(e));
+    }
+  }
+  return (
+    <section className="card" aria-labelledby="code-h">
+      <h2 id="code-h">Family code</h2>
+      <div className="family-code" aria-label={"Family code " + code}>{code}</div>
+      <p>Kids type this when they make their account, and then they show up here. Only share it with your kids.</p>
+      {error && <div className="error" role="alert">{error}</div>}
+      {confirm ? (
+        <div className="row">
+          <p className="grow">Make a new code? The old one stops working for new accounts. Kids who already have accounts keep them.</p>
+          <button type="button" className="btn" onClick={renew}>New code</button>
+          <button type="button" className="btn quiet" onClick={() => setConfirm(false)}>Keep this one</button>
+        </div>
+      ) : <button type="button" className="link" style={{ alignSelf: "flex-start" }} onClick={() => setConfirm(true)}>Make a new code</button>}
+    </section>
   );
 }
 
@@ -63,20 +92,27 @@ function AvatarPicker({ value, onChange }: { value: string; onChange: (a: string
   );
 }
 
-function ChildForm({ backend, onDone, canCancel }: { backend: Backend; onDone: (made: boolean) => void; canCancel: boolean }) {
+const usernameInput = (value: string, set: (v: string) => void, label: string) => (
+  <label className="field">{label}
+    <input value={value} maxLength={20} onChange={(e) => set(e.target.value)} autoComplete="off"
+           autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+  </label>
+);
+
+function ChildForm({ backend, onDone }: { backend: Backend; onDone: (made: boolean) => void }) {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState<string>("fox");
-  const [pin, setPin] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return setError("Type a name.");
-    if (pin && !PIN_RE.test(pin)) return setError("A PIN is 4 numbers, or leave it empty.");
     setBusy(true); setError("");
     try {
-      await backend.createChild(name, avatar, pin || null);
+      await backend.createChild(name, avatar, username, password);
       onDone(true);
     } catch (err) {
       setError(errorText(err));
@@ -85,18 +121,19 @@ function ChildForm({ backend, onDone, canCancel }: { backend: Backend; onDone: (
   }
 
   return (
-    <form className="card" style={{ background: "var(--panel2)" }} onSubmit={submit} aria-label="New child">
-      <label className="field">Name
+    <form className="card" style={{ background: "var(--panel2)" }} onSubmit={submit} aria-label="New kid">
+      <label className="field">Name (shown on the dashboard)
         <input value={name} maxLength={30} onChange={(e) => setName(e.target.value)} autoComplete="off" />
       </label>
       <div className="field">Animal<AvatarPicker value={avatar} onChange={setAvatar} /></div>
-      <label className="field">PIN (optional, 4 numbers)
-        <input value={pin} inputMode="numeric" maxLength={4} autoComplete="off" onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
+      {usernameInput(username, setUsername, "Username they sign in with (3 to 20 letters, numbers or _)")}
+      <label className="field">Password (4 or more characters)
+        <input value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
       </label>
       {error && <div className="error" role="alert">{error}</div>}
       <div className="row">
-        <button className="btn grow" type="submit" disabled={busy}>Add child</button>
-        {canCancel && <button className="btn quiet" type="button" onClick={() => onDone(false)}>Cancel</button>}
+        <button className="btn grow" type="submit" disabled={busy}>Add kid</button>
+        <button className="btn quiet" type="button" onClick={() => onDone(false)}>Cancel</button>
       </div>
     </form>
   );
@@ -105,23 +142,31 @@ function ChildForm({ backend, onDone, canCancel }: { backend: Backend; onDone: (
 function ChildEditor({ backend, child, onDone }: { backend: Backend; child: Child; onDone: () => Promise<void> }) {
   const [name, setName] = useState(child.name);
   const [avatar, setAvatar] = useState(child.avatar);
-  const [pin, setPin] = useState("");
+  const [username, setUsername] = useState(child.username ?? "");
+  const [password, setPassword] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [note, setNote] = useState("");
 
-  async function act(fn: () => Promise<void>) {
-    setBusy(true); setError("");
-    try { await fn(); await onDone(); } catch (err) { setError(errorText(err)); setBusy(false); }
+  async function act(fn: () => Promise<void>, close = true) {
+    setBusy(true); setError(""); setNote("");
+    try {
+      await fn();
+      if (close) await onDone(); else setBusy(false);
+    } catch (err) {
+      setError(errorText(err));
+      setBusy(false);
+    }
   }
 
   const save = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return setError("Type a name.");
-    if (pin && !PIN_RE.test(pin)) return setError("A PIN is 4 numbers.");
     act(async () => {
       await backend.updateChild(child.id, { name, avatar });
-      if (pin) await backend.setPin(child.id, pin);
+      const loginChanged = username.trim() !== (child.username ?? "") || password !== "";
+      if (loginChanged && (username.trim() || password)) await backend.setKidLogin(child.id, username, password || null);
     });
   };
 
@@ -131,21 +176,28 @@ function ChildEditor({ backend, child, onDone }: { backend: Backend; child: Chil
         <input value={name} maxLength={30} onChange={(e) => setName(e.target.value)} autoComplete="off" />
       </label>
       <div className="field">Animal<AvatarPicker value={avatar} onChange={setAvatar} /></div>
-      <label className="field">{child.hasPin ? "New PIN (leave empty to keep the old one)" : "PIN (optional, 4 numbers)"}
-        <input value={pin} inputMode="numeric" maxLength={4} autoComplete="off" onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
+      {usernameInput(username, setUsername, child.username ? "Username" : "Username (to let them sign in on any device)")}
+      <label className="field">{child.username ? "New password (leave empty to keep it)" : "Password (4 or more characters)"}
+        <input value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
       </label>
       {error && <div className="error" role="alert">{error}</div>}
+      {note && <div className="ok" role="status">{note}</div>}
       <div className="row">
         <button className="btn grow" type="submit" disabled={busy}>Save</button>
         <button className="btn quiet" type="button" disabled={busy} onClick={() => onDone()}>Cancel</button>
       </div>
       <div className="row">
-        {child.hasPin && <button className="btn quiet" type="button" disabled={busy} onClick={() => act(() => backend.setPin(child.id, null))}>Remove PIN</button>}
-        {!confirmDelete && <button className="btn quiet" type="button" disabled={busy} onClick={() => setConfirmDelete(true)}>Delete child</button>}
+        {child.devices > 0 && (
+          <button className="btn quiet" type="button" disabled={busy}
+                  onClick={() => act(async () => { await backend.signOutKidDevices(child.id); setNote("Signed out on every device."); }, false)}>
+            Sign out on all devices
+          </button>
+        )}
+        {!confirmDelete && <button className="btn quiet" type="button" disabled={busy} onClick={() => setConfirmDelete(true)}>Delete kid</button>}
       </div>
       {confirmDelete && (
         <div className="card" role="alertdialog" aria-label="Confirm delete" style={{ background: "var(--deep)" }}>
-          <p>Delete {child.name} and all of {child.name}'s progress and animals? This can't be undone.</p>
+          <p>Delete {child.name}, their sign-in, and all of their progress and animals? This can't be undone.</p>
           <div className="row">
             <button className="btn danger grow" type="button" disabled={busy} onClick={() => act(() => backend.deleteChild(child.id))}>Delete {child.name}</button>
             <button className="btn quiet" type="button" onClick={() => setConfirmDelete(false)}>Keep</button>

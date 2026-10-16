@@ -24,6 +24,11 @@ export async function addParent(db: PGlite, id: string, timeZone?: string): Prom
     [id, id.slice(0, 8) + "@example.test", JSON.stringify(timeZone ? { time_zone: timeZone } : {})]);
 }
 
+/** A device's anonymous Supabase session (what a kid's device signs in with). */
+export async function addAnon(db: PGlite, id: string): Promise<void> {
+  await db.query("insert into auth.users (id, is_anonymous) values ($1, true)", [id]);
+}
+
 /** Run fn as a signed-in parent (role authenticated, JWT sub = uid), inside a transaction. */
 export function asUser<T>(db: PGlite, uid: string, fn: (tx: Transaction) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {

@@ -1,24 +1,38 @@
 import type { FactStat } from "../dashboard/logic";
+import type { Saved } from "../game/logic/engine";
 import type { Sender } from "./writeQueue";
 
 // What the app needs from the server. SupabaseBackend is the real one; FakeBackend
 // (tests only) keeps everything in memory.
+//
+// Two kinds of signed-in session:
+//  - a parent: email + password, sees the dashboard for every kid on their family code
+//  - a kid's device: an anonymous session linked to one child by kid_sign_in / kid_sign_up
 
-export interface Session { userId: string; email: string }
+export interface Session { userId: string; email: string; anonymous: boolean }
 
 export interface Child {
   id: string;
   name: string;
-  avatar: string;     // a regular-animal collectible id: "cat", "fox", …
-  hasPin: boolean;
+  avatar: string;            // a regular-animal collectible id: "cat", "fox", …
+  username: string | null;   // null: no kid sign-in set up yet
+  devices: number;           // devices currently signed in as this kid
 }
 
 export interface ParentSettings {
   timeZone: string;
   fluencyMs: number;
+  familyCode: string;
 }
 
-export type PinResult = "ok" | "wrong" | "locked";
+/** The kid a device is signed in as. */
+export interface KidMe { childId: string; name: string; avatar: string; username: string; timeZone: string }
+
+export type KidError =
+  | "bad_family_code" | "username_taken" | "bad_username" | "password_too_short"
+  | "wrong_username_or_password" | "locked" | "too_many_tries"
+  | "parents_cannot_be_kids" | "not_signed_in" | "kid_sign_in_off" | "offline";
+export type KidResult = { ok: true; childId: string } | { ok: false; error: KidError };
 
 /** What the server knows about a child's game. */
 export interface ServerChildState {
@@ -35,25 +49,36 @@ export interface HistoryRow { a: number; b: number; given: number; correct: bool
 export interface Backend {
   getSession(): Promise<Session | null>;
   onAuthChange(cb: (s: Session | null) => void): () => void;
+
+  /* grown-ups */
   /** Returns needsConfirm = true when the project requires email confirmation first. */
   signUp(email: string, password: string, timeZone: string): Promise<{ needsConfirm: boolean }>;
   signIn(email: string, password: string): Promise<void>;
+  /** Signs out whoever is signed in (a kid's device is unlinked first). */
   signOut(): Promise<void>;
-  /** Parent gate: is this the signed-in parent's password? */
-  checkPassword(password: string): Promise<boolean>;
 
+  /* kids */
+  kidMe(): Promise<KidMe | null>;
+  kidSignUp(familyCode: string, username: string, password: string, avatar: string): Promise<KidResult>;
+  kidSignIn(username: string, password: string): Promise<KidResult>;
+  /** Carries progress from playing without an account into a new account (signed in as that kid). */
+  importGuest(childId: string, saved: Saved): Promise<void>;
+
+  /* a parent's kids */
   listChildren(): Promise<Child[]>;
-  createChild(name: string, avatar: string, pin: string | null): Promise<Child>;
+  createChild(name: string, avatar: string, username: string, password: string): Promise<void>;
   updateChild(id: string, patch: { name?: string; avatar?: string }): Promise<void>;
   deleteChild(id: string): Promise<void>;
-  setPin(id: string, pin: string | null): Promise<void>;
-  verifyPin(id: string, pin: string): Promise<PinResult>;
+  /** Give a kid a sign-in, or change it. password null keeps the current one. */
+  setKidLogin(id: string, username: string, password: string | null): Promise<void>;
+  signOutKidDevices(id: string): Promise<void>;
+  newFamilyCode(): Promise<string>;
 
   getSettings(): Promise<ParentSettings>;
-  updateSettings(patch: Partial<ParentSettings>): Promise<void>;
+  updateSettings(patch: Partial<Pick<ParentSettings, "timeZone" | "fluencyMs">>): Promise<void>;
 
   loadChildState(childId: string): Promise<ServerChildState>;
-  /** Sends write-queue batches under the signed-in parent's account. */
+  /** Sends write-queue batches under whoever is signed in. */
   sender(): Sender;
 
   /* dashboard */
@@ -65,11 +90,30 @@ export interface Backend {
   factHistory(childId: string, a: number, b: number, merge: boolean): Promise<HistoryRow[]>;
 }
 
-
 /** Errors shown to the parent, in plain words. */
 export class BackendError extends Error {}
 
 export const AVATARS = ["cat", "dog", "bear", "bunny", "fox", "owl", "frog", "penguin", "whale", "turtle", "elephant", "pig", "panda"] as const;
+
+/** Kid-friendly words for each kid sign-in problem. */
+export const KID_ERROR_TEXT: Record<KidError, string> = {
+  bad_family_code: "That family code doesn't match. Ask a grown-up to check it.",
+  username_taken: "Someone already has that name. Try another one.",
+  bad_username: "Use 3 to 20 letters or numbers, no spaces.",
+  password_too_short: "Make your password at least 4 letters or numbers.",
+  wrong_username_or_password: "That name and password don't match.",
+  locked: "Too many tries. Wait a minute, then try again.",
+  too_many_tries: "Too many tries. Wait a few minutes, then try again.",
+  parents_cannot_be_kids: "A grown-up is signed in here. Sign out first.",
+  not_signed_in: "Something went wrong. Try again.",
+  kid_sign_in_off: "Kid sign-in isn't switched on yet. Ask a grown-up.",
+  offline: "Can't reach the internet. Check the connection and try again.",
+};
+
+/** Usernames are lowercase letters, numbers and _, 3–20 long. */
+export function normUsername(u: string): string {
+  return u.trim().toLowerCase();
+}
 
 export function browserTimeZone(): string {
   try {

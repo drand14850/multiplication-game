@@ -13,7 +13,6 @@ const APP = "http://localhost:5174/";
 const SUPA = "http://fake.supabase.test";
 const OUT = fileURLToPath(new URL("../parity-out/dashboard/", import.meta.url));
 const P = "aaaaaaaa-0000-4000-8000-00000000000a";
-const PASSWORD = "dashboard-test-password";     // the fake auth below only accepts this
 
 let db: PGlite;
 let kid: string;
@@ -55,22 +54,18 @@ async function fakeSupabase(ctx: BrowserContext) {
     };
     const eq = (k: string) => (url.searchParams.get(k) ?? "").replace(/^eq\./, "");
 
-    if (path === "/auth/v1/token") {
-      const body = JSON.parse(req.postData() ?? "{}");
-      if (body.password === PASSWORD) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(session) });
-      return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "invalid_grant", error_description: "Invalid login credentials" }) });
-    }
     if (path.startsWith("/rest/v1/rpc/")) {
       const fn = path.slice("/rest/v1/rpc/".length);
       const args = JSON.parse(req.postData() ?? "{}");
       if (fn === "fact_stats") return reply(await sql("select * from fact_stats($1, $2)", [args.p_child, args.p_merge]));
       if (fn === "daily_trend") return reply(await sql("select day::text as day, problems, correct, median_ms, sessions, minutes from daily_trend($1, $2)", [args.p_child, args.p_days]));
       if (fn === "quest_stats") return reply(await sql("select * from quest_stats($1)", [args.p_child]));
+      if (fn === "my_kid_logins") return reply(await sql("select * from my_kid_logins()"));
       if (fn === "longest_streak") return reply((await sql<{ n: number }>("select longest_streak($1) as n", [args.p_child]))[0].n);
     }
     const table = path.replace("/rest/v1/", "");
-    if (table === "children") return reply(await sql("select id, name, avatar, has_pin from children order by created_at"));
-    if (table === "parent_settings") return reply(await sql("select time_zone, fluency_ms from parent_settings"));
+    if (table === "children") return reply(await sql("select id, name, avatar from children order by created_at"));
+    if (table === "parent_settings") return reply(await sql("select time_zone, fluency_ms, family_code from parent_settings"));
     if (table === "game_state") return reply(await sql("select review_pile from game_state where child_id = $1", [eq("child_id")]));
     if (table === "backpack") return reply(await sql("select collectible_id, n from backpack where child_id = $1", [eq("child_id")]));
     if (table === "catches") return reply([]);
@@ -88,10 +83,7 @@ async function fakeSupabase(ctx: BrowserContext) {
 }
 
 async function openDashboard(page: Page) {
-  await page.goto(APP);
-  await page.getByRole("button", { name: "Grown-ups" }).click();
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Open" }).click();
+  await page.goto(APP);                              // a signed-in grown-up opens straight to their area
   await expect(page.getByRole("heading", { name: "Grown-ups" })).toBeVisible();
   await page.locator(".kid-switch").getByRole("button", { name: "Demo Kid (seed)" }).click();
   await expect(page.locator(".fgrid")).toBeVisible();

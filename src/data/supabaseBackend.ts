@@ -1,17 +1,20 @@
 import { createClient, type SupabaseClient, type Session as SbSession } from "@supabase/supabase-js";
 import type { FactStat } from "../dashboard/logic";
-import { BackendError, type Backend, type Child, type HistoryRow, type ParentSettings, type PinResult, type QuestStat, type ServerChildState, type Session, type TrendDay } from "./backend";
+import type { Saved } from "../game/logic/engine";
+import {
+  BackendError, normUsername, type Backend, type Child, type HistoryRow, type KidError, type KidMe, type KidResult,
+  type ParentSettings, type QuestStat, type ServerChildState, type Session, type TrendDay,
+} from "./backend";
 import type { Row, Sender, SendResult, Table } from "./writeQueue";
 
-interface ChildRow { id: string; name: string; avatar: string; has_pin: boolean }
-
 const toSession = (s: SbSession | null): Session | null =>
-  s ? { userId: s.user.id, email: s.user.email ?? "" } : null;
-const toChild = (r: ChildRow): Child => ({ id: r.id, name: r.name, avatar: r.avatar, hasPin: r.has_pin });
+  s ? { userId: s.user.id, email: s.user.email ?? "", anonymous: !!s.user.is_anonymous } : null;
 
 function fail(e: { message: string } | null): void {
   if (e) throw new BackendError(e.message);
 }
+
+const isNetwork = (m: string) => /fetch|network|load failed/i.test(m);
 
 export class SupabaseBackend implements Backend {
   private sb: SupabaseClient;
@@ -30,6 +33,8 @@ export class SupabaseBackend implements Backend {
     return () => data.subscription.unsubscribe();
   }
 
+  /* ---------- grown-ups ---------- */
+
   async signUp(email: string, password: string, timeZone: string): Promise<{ needsConfirm: boolean }> {
     const { data, error } = await this.sb.auth.signUp({
       email, password,
@@ -40,37 +45,93 @@ export class SupabaseBackend implements Backend {
   }
 
   async signIn(email: string, password: string): Promise<void> {
+    // a kid's device that a grown-up signs in on: unlink the kid first
+    const { data } = await this.sb.auth.getSession();
+    if (data.session?.user.is_anonymous) await this.signOut();
     const { error } = await this.sb.auth.signInWithPassword({ email, password });
     if (error) throw new BackendError(error.message === "Invalid login credentials" ? "That email and password don't match." : error.message);
   }
 
   async signOut(): Promise<void> {
+    const { data } = await this.sb.auth.getSession();
+    if (data.session?.user.is_anonymous) await this.sb.rpc("kid_sign_out");   // unlink this device first
     fail((await this.sb.auth.signOut()).error);
   }
 
-  async checkPassword(password: string): Promise<boolean> {
+  /* ---------- kids ---------- */
+
+  /** Kid sign-in runs on an anonymous session; make one if there's none. */
+  private async kidSession(): Promise<KidError | null> {
     const { data } = await this.sb.auth.getSession();
-    const email = data.session?.user.email;
-    if (!email) return false;
-    const { error } = await this.sb.auth.signInWithPassword({ email, password });
-    return !error;
+    if (data.session) return data.session.user.is_anonymous ? null : "parents_cannot_be_kids";
+    const { error } = await this.sb.auth.signInAnonymously();
+    if (!error) return null;
+    if (isNetwork(error.message)) return "offline";
+    if (/anonymous/i.test(error.message)) return "kid_sign_in_off";
+    throw new BackendError(error.message);
   }
+
+  private async kidRpc(fn: string, args: Record<string, string>): Promise<KidResult> {
+    const problem = await this.kidSession();
+    if (problem) return { ok: false, error: problem };
+    const { data, error } = await this.sb.rpc(fn, args);
+    if (error) {
+      if (isNetwork(error.message)) return { ok: false, error: "offline" };
+      throw new BackendError(error.message);
+    }
+    const r = data as { child_id?: string; error?: KidError };
+    return r.child_id ? { ok: true, childId: r.child_id } : { ok: false, error: r.error ?? "not_signed_in" };
+  }
+
+  kidSignUp(familyCode: string, username: string, password: string, avatar: string): Promise<KidResult> {
+    return this.kidRpc("kid_sign_up", { p_code: familyCode, p_username: normUsername(username), p_password: password, p_avatar: avatar });
+  }
+
+  kidSignIn(username: string, password: string): Promise<KidResult> {
+    return this.kidRpc("kid_sign_in", { p_username: normUsername(username), p_password: password });
+  }
+
+  async kidMe(): Promise<KidMe | null> {
+    const { data, error } = await this.sb.rpc("kid_me");
+    fail(error);
+    const r = ((data ?? []) as { child_id: string; name: string; avatar: string; username: string; time_zone: string }[])[0];
+    return r ? { childId: r.child_id, name: r.name, avatar: r.avatar, username: r.username, timeZone: r.time_zone } : null;
+  }
+
+  async importGuest(childId: string, saved: Saved): Promise<void> {
+    const at = new Date().toISOString();
+    const catches: Row[] = [];
+    for (const [id, n] of Object.entries(saved.caught)) {
+      for (let i = 0; i < n; i++) catches.push({ id: crypto.randomUUID(), child_id: childId, collectible_id: id, source: "import", created_at: at });
+    }
+    if (catches.length) fail((await this.sb.from("catches").insert(catches)).error);
+    fail((await this.sb.from("game_state").upsert({ child_id: childId, review_pile: saved.weak, updated_at: at }, { onConflict: "child_id" })).error);
+  }
+
+  /* ---------- a parent's kids ---------- */
 
   async listChildren(): Promise<Child[]> {
-    const { data, error } = await this.sb.from("children").select("id, name, avatar, has_pin").order("created_at");
-    fail(error);
-    return (data as ChildRow[]).map(toChild);
+    const [kids, logins] = await Promise.all([
+      this.sb.from("children").select("id, name, avatar").order("created_at"),
+      this.sb.rpc("my_kid_logins"),
+    ]);
+    fail(kids.error); fail(logins.error);
+    const by = new Map(((logins.data ?? []) as { child_id: string; username: string; devices: number }[]).map((l) => [l.child_id, l]));
+    return ((kids.data ?? []) as { id: string; name: string; avatar: string }[]).map((k) => ({
+      id: k.id, name: k.name, avatar: k.avatar, username: by.get(k.id)?.username ?? null, devices: by.get(k.id)?.devices ?? 0,
+    }));
   }
 
-  async createChild(name: string, avatar: string, pin: string | null): Promise<Child> {
-    const { data, error } = await this.sb.from("children").insert({ name: name.trim(), avatar }).select("id, name, avatar, has_pin").single();
+  async createChild(name: string, avatar: string, username: string, password: string): Promise<void> {
+    const { data, error } = await this.sb.from("children").insert({ name: name.trim(), avatar }).select("id").single();
     fail(error);
-    const child = toChild(data as ChildRow);
-    if (pin) {
-      await this.setPin(child.id, pin);
-      child.hasPin = true;
+    const id = (data as { id: string }).id;
+    try {
+      await this.setKidLogin(id, username, password);
+    } catch (e) {
+      await this.sb.from("children").delete().eq("id", id);     // no half-made kid left behind
+      throw e;
     }
-    return child;
   }
 
   async updateChild(id: string, patch: { name?: string; avatar?: string }): Promise<void> {
@@ -84,25 +145,44 @@ export class SupabaseBackend implements Backend {
     fail((await this.sb.from("children").delete().eq("id", id)).error);
   }
 
-  async setPin(id: string, pin: string | null): Promise<void> {
-    fail((await this.sb.rpc("set_child_pin", { p_child: id, p_pin: pin })).error);
+  async setKidLogin(id: string, username: string, password: string | null): Promise<void> {
+    const { error } = await this.sb.rpc("set_kid_login", { p_child: id, p_username: normUsername(username), p_password: password });
+    if (!error) return;
+    const words: Record<string, string> = {
+      username_taken: "Someone already has that username. Try another one.",
+      bad_username: "Usernames are 3 to 20 letters, numbers or _ (no spaces).",
+      password_too_short: "Passwords need at least 4 characters.",
+    };
+    const key = Object.keys(words).find((k) => error.message.includes(k));
+    throw new BackendError(key ? words[key] : error.message);
   }
 
-  async verifyPin(id: string, pin: string): Promise<PinResult> {
-    const { data, error } = await this.sb.rpc("verify_child_pin", { p_child: id, p_pin: pin });
-    if (error) {
-      if (error.message.includes("pin_locked")) return "locked";
-      throw new BackendError(error.message);
-    }
-    return data ? "ok" : "wrong";
+  async signOutKidDevices(id: string): Promise<void> {
+    fail((await this.sb.rpc("sign_out_kid_devices", { p_child: id })).error);
+  }
+
+  async newFamilyCode(): Promise<string> {
+    const { data, error } = await this.sb.rpc("new_family_code");
+    fail(error);
+    return data as string;
   }
 
   async getSettings(): Promise<ParentSettings> {
-    const { data, error } = await this.sb.from("parent_settings").select("time_zone, fluency_ms").single();
+    const { data, error } = await this.sb.from("parent_settings").select("time_zone, fluency_ms, family_code").single();
     fail(error);
-    const r = data as { time_zone: string; fluency_ms: number };
-    return { timeZone: r.time_zone, fluencyMs: r.fluency_ms };
+    const r = data as { time_zone: string; fluency_ms: number; family_code: string };
+    return { timeZone: r.time_zone, fluencyMs: r.fluency_ms, familyCode: r.family_code };
   }
+
+  async updateSettings(patch: Partial<Pick<ParentSettings, "timeZone" | "fluencyMs">>): Promise<void> {
+    const row: Record<string, string | number> = {};
+    if (patch.timeZone !== undefined) row.time_zone = patch.timeZone;
+    if (patch.fluencyMs !== undefined) row.fluency_ms = patch.fluencyMs;
+    const { data } = await this.sb.auth.getSession();
+    fail((await this.sb.from("parent_settings").update(row).eq("parent_id", data.session?.user.id ?? "")).error);
+  }
+
+  /* ---------- game data ---------- */
 
   async loadChildState(childId: string): Promise<ServerChildState> {
     const since = new Date(Date.now() - 2 * 86_400_000).toISOString();
@@ -177,13 +257,5 @@ export class SupabaseBackend implements Backend {
     fail(error);
     return ((data ?? []) as { a: number; b: number; given_answer: number; correct: boolean; response_ms: number; mode: string; created_at: string }[])
       .map((r) => ({ a: r.a, b: r.b, given: r.given_answer, correct: r.correct, ms: r.response_ms, mode: r.mode, at: r.created_at }));
-  }
-
-  async updateSettings(patch: Partial<ParentSettings>): Promise<void> {
-    const row: Record<string, string | number> = {};
-    if (patch.timeZone !== undefined) row.time_zone = patch.timeZone;
-    if (patch.fluencyMs !== undefined) row.fluency_ms = patch.fluencyMs;
-    const { data } = await this.sb.auth.getSession();
-    fail((await this.sb.from("parent_settings").update(row).eq("parent_id", data.session?.user.id ?? "")).error);
   }
 }

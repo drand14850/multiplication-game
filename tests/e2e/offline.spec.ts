@@ -1,41 +1,67 @@
-// Phase 3: offline play and sync, end to end in a real browser.
+// Offline play and sync, and kid sign-in, end to end in a real browser.
 // The app runs against a fake Supabase (http://fake.supabase.test) that this test answers,
-// recording every row the app sends. A signed-in session is injected into localStorage.
+// recording every row the app sends. Kid devices use anonymous sessions, as in production.
 
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const APP = "http://localhost:5174/";
 const SUPA = "http://fake.supabase.test";
 
-const user = { id: "11111111-1111-4111-8111-111111111111", email: "parent@example.test", aud: "authenticated", role: "authenticated" };
 const kids = [
-  { id: "c-ana", name: "Ana", avatar: "fox", has_pin: false },
-  { id: "c-ben", name: "Ben", avatar: "owl", has_pin: false },
+  { id: "c-ana", name: "Ana", avatar: "fox", username: "ana", password: "apple" },
+  { id: "c-ben", name: "Ben", avatar: "owl", username: "ben", password: "bear" },
 ];
 
 type Row = Record<string, unknown>;
 
-/** Fake PostgREST: answers the app's reads, keeps every row it's sent. */
-async function fakeSupabase(ctx: BrowserContext) {
+/** Fake Supabase: auth for kid devices, the kid RPCs, and the game tables. */
+async function fakeSupabase(ctx: BrowserContext, signedInAs: string | null) {
   // up = false: the server can't be reached (also set while the browser is offline, because
   // Playwright's request interception would otherwise still answer)
-  const server = { up: true, rows: { attempts: [] as Row[], catches: [] as Row[], quest_runs: [] as Row[], game_state: [] as Row[] } };
-  const session = { access_token: "x.y.z", refresh_token: "r", token_type: "bearer", expires_in: 3600,
-                    expires_at: Math.floor(Date.now() / 1000) + 3600, user };
-  await ctx.addInitScript(`localStorage.setItem("sb-fake-auth-token", ${JSON.stringify(JSON.stringify(session))});`);
+  const server = {
+    up: true,
+    linked: signedInAs as string | null,         // which kid this device is signed in as
+    rows: { attempts: [] as Row[], catches: [] as Row[], quest_runs: [] as Row[], game_state: [] as Row[] },
+  };
+  let devices = 0;
+  const sessionFor = (id: string) => ({
+    access_token: "x.y.z", refresh_token: "r", token_type: "bearer", expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: { id, aud: "authenticated", role: "authenticated", is_anonymous: true, app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() },
+  });
+  if (signedInAs) {
+    await ctx.addInitScript(`if (!localStorage.getItem("sb-fake-auth-token")) localStorage.setItem("sb-fake-auth-token", ${JSON.stringify(JSON.stringify(sessionFor("device-0")))});`);
+  }
   await ctx.route(SUPA + "/**", async (route) => {
     if (!server.up) return route.abort("connectionrefused");
     const req = route.request();
     const url = new URL(req.url());
-    const table = url.pathname.replace("/rest/v1/", "") as keyof typeof server.rows;
+    const path = url.pathname;
     const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+
+    if (path === "/auth/v1/signup") return json(sessionFor("device-" + ++devices));        // signInAnonymously
+    if (path === "/auth/v1/logout") return route.fulfill({ status: 204, body: "" });
+    if (path.startsWith("/rest/v1/rpc/")) {
+      const fn = path.slice("/rest/v1/rpc/".length);
+      const args = JSON.parse(req.postData() || "{}");
+      const k = kids.find((x) => x.id === server.linked);
+      if (fn === "kid_me") return json(k ? [{ child_id: k.id, name: k.name, avatar: k.avatar, username: k.username, time_zone: "UTC" }] : []);
+      if (fn === "kid_sign_out") { server.linked = null; return json(null); }
+      if (fn === "kid_sign_in") {
+        const m = kids.find((x) => x.username === args.p_username && x.password === args.p_password);
+        if (!m) return json({ error: "wrong_username_or_password" });
+        server.linked = m.id;
+        return json({ child_id: m.id });
+      }
+      return json(null);
+    }
+
+    const table = path.replace("/rest/v1/", "") as keyof typeof server.rows;
     if (req.method() === "POST" && table in server.rows) {
       const body = JSON.parse(req.postData() || "[]");
       server.rows[table].push(...(Array.isArray(body) ? body : [body]));
       return route.fulfill({ status: 201, body: "" });
     }
-    if (table === ("children" as string)) return json(kids);
-    if (table === ("parent_settings" as string)) return json({ time_zone: "UTC", fluency_ms: 3000 });
     // reads answered from the rows received so far, like the real tables
     const child = (url.searchParams.get("child_id") ?? "").replace(/^eq\./, "");
     const mine = (t: keyof typeof server.rows) => server.rows[t].filter((r) => r.child_id === child);
@@ -54,9 +80,16 @@ async function fakeSupabase(ctx: BrowserContext) {
   return server;
 }
 
-async function pickChild(page: Page, name: string) {
-  await page.getByRole("button", { name }).click();
+async function inGame(page: Page) {
   await expect(page.locator("#eq")).toBeVisible();
+}
+
+async function kidSignIn(page: Page, username: string, password: string) {
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByLabel("Your name").fill(username);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Let's go" }).click();
+  await inGame(page);
 }
 
 /** Answer n problems right, waiting for each next problem like a child would. */
@@ -72,16 +105,36 @@ async function play(page: Page, n: number) {
 
 const unique = (rows: Row[]) => new Set(rows.map((r) => r.id)).size;
 
+test.describe("kid sign-in on a school computer", () => {
+  test("username + password, play, and the answers reach the server", async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 780 } });
+    const server = await fakeSupabase(ctx, null);          // a fresh computer: nobody signed in
+    const page = await ctx.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto(APP);
+    await kidSignIn(page, "ben", "bear");
+    await play(page, 4);
+    await expect.poll(() => server.rows.attempts.length, { timeout: 15_000 }).toBe(4);
+    expect(server.rows.attempts.every((r) => r.child_id === "c-ben")).toBe(true);
+    // next day, same computer: straight back into his game
+    await page.reload();
+    await inGame(page);
+    expect(errors).toEqual([]);
+    await ctx.close();
+  });
+});
+
 test.describe("offline play and sync", () => {
   test("20 problems with the network off arrive exactly once when it comes back", async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 780 } });
-    const server = await fakeSupabase(ctx);
+    const server = await fakeSupabase(ctx, "c-ana");
     const page = await ctx.newPage();
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
 
     await page.goto(APP);
-    await pickChild(page, "Ana");
+    await inGame(page);
     await ctx.setOffline(true);
     server.up = false;
     const t0 = Date.now();
@@ -105,42 +158,43 @@ test.describe("offline play and sync", () => {
 
   test("the queue survives a reload while the server is unreachable", async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 780 } });
-    const server = await fakeSupabase(ctx);
+    const server = await fakeSupabase(ctx, "c-ana");
     const page = await ctx.newPage();
     await page.goto(APP);
-    await pickChild(page, "Ana");
+    await inGame(page);
 
     server.up = false;
     await play(page, 5);
     const bag = await page.locator("#bagCount").textContent();
-    await page.reload();                                    // pending rows are only in IndexedDB now
     server.up = true;
+    await page.reload();                                    // pending rows are only in IndexedDB now
+    await inGame(page);
     await expect.poll(() => server.rows.attempts.length, { timeout: 15_000 }).toBe(5);
     await page.waitForTimeout(3000);
     expect(server.rows.attempts).toHaveLength(5);
     expect(unique(server.rows.attempts)).toBe(5);
-
     // the backpack came back too (server rows + anything still unsent)
-    await pickChild(page, "Ana");
     expect(await page.locator("#bagCount").textContent()).toBe(bag);
     await ctx.close();
   });
 
-  test("two children on the same device keep separate progress", async ({ browser }) => {
+  test("two kids on the same computer keep separate progress", async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 780 } });
-    const server = await fakeSupabase(ctx);
+    const server = await fakeSupabase(ctx, "c-ana");
     const page = await ctx.newPage();
     await page.goto(APP);
 
-    await pickChild(page, "Ana");
+    await inGame(page);
     await play(page, 3);
     const anaBag = await page.locator("#bagCount").textContent();
     await page.getByRole("button", { name: /Switch player/ }).click();
-    await pickChild(page, "Ben");
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await kidSignIn(page, "ben", "bear");
     expect(await page.locator("#bagCount").textContent()).toBe("0/82");     // Ben starts with his own empty backpack
     await play(page, 2);
     await page.getByRole("button", { name: /Switch player/ }).click();
-    await pickChild(page, "Ana");
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await kidSignIn(page, "ana", "apple");
     expect(await page.locator("#bagCount").textContent()).toBe(anaBag);
 
     await expect.poll(() => server.rows.attempts.length, { timeout: 15_000 }).toBe(5);

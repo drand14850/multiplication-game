@@ -2,7 +2,7 @@
 // server can't be reached), then plays it with every write going through the queue.
 
 import { useEffect, useState } from "react";
-import type { Backend, Child, ServerChildState } from "../data/backend";
+import type { Backend, ServerChildState } from "../data/backend";
 import { mergeSaved, readCache, ServerStore } from "../data/serverStore";
 import type { OutboxItem, WriteQueue } from "../data/writeQueue";
 import { Game } from "../game/ui/Game";
@@ -14,7 +14,7 @@ function within<T>(p: Promise<T>, ms: number): Promise<T | null> {
 }
 
 export function ChildGame({ backend, queue, child, timeZone, onSwitch }: {
-  backend: Backend; queue: WriteQueue; child: Child; timeZone?: string; onSwitch: () => void;
+  backend: Backend; queue: WriteQueue; child: { id: string; name: string; avatar: string }; timeZone?: string; onSwitch: () => void;
 }) {
   const [store, setStore] = useState<ServerStore | null>(null);
 

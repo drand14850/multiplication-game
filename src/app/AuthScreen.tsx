@@ -1,10 +1,10 @@
-// Parent sign-in and sign-up. Only parents have accounts.
+// Grown-up sign-in and sign-up (email + password). Kids have their own sign-in on the front page.
 
 import { useState, type FormEvent } from "react";
 import { browserTimeZone, type Backend } from "../data/backend";
 import { errorText } from "./common";
 
-export function AuthScreen({ backend, onSignedIn }: { backend: Backend; onSignedIn: () => void }) {
+export function AuthScreen({ backend, onSignedIn, onBack }: { backend: Backend; onSignedIn: () => void; onBack?: () => void }) {
   const [mode, setMode] = useState<"in" | "up">("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +37,7 @@ export function AuthScreen({ backend, onSignedIn }: { backend: Backend; onSigned
   return (
     <div className="screen">
       <h1>Times Tables</h1>
-      <p className="center">{mode === "in" ? "Grown-ups: sign in to set up your kids." : "Create a grown-up account."}</p>
+      <p className="center">{mode === "in" ? "Grown-ups: sign in to see your kids' progress." : "Create a grown-up account."}</p>
       <form className="card" onSubmit={submit}>
         <label className="field">Email
           <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -53,6 +53,7 @@ export function AuthScreen({ backend, onSignedIn }: { backend: Backend; onSigned
       <button className="link" type="button" onClick={() => { setMode(mode === "in" ? "up" : "in"); setError(""); }}>
         {mode === "in" ? "New here? Create an account" : "Have an account? Sign in"}
       </button>
+      {onBack && <button type="button" className="link" onClick={onBack}>Back</button>}
     </div>
   );
 }

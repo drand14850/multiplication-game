@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import "fake-indexeddb/auto";
-// The app flow with an in-memory backend: sign-in, "Who's playing?", child PIN, and the parent gate.
+// The app flow with an in-memory backend: playing without an account, kid accounts with a
+// family code, kid sign-in on any device, and the grown-up area.
 
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -10,162 +11,205 @@ import { App } from "../App";
 
 const PASSWORD = "correct horse";
 let backend: FakeBackend;
+type User = ReturnType<typeof userEvent.setup>;
 
-beforeEach(async () => {
+beforeEach(() => {
   localStorage.clear();
   backend = new FakeBackend({ email: "parent@example.test", password: PASSWORD });
-  await backend.signIn("parent@example.test", PASSWORD);      // already signed in on this device
-  await backend.createChild("Ana", "fox", null);
-  await backend.createChild("Ben", "owl", "4321");
 });
 afterEach(cleanup);
 
-const dashboardShown = () => screen.queryByRole("heading", { name: "Grown-ups" }) !== null;
-
-async function typePin(user: ReturnType<typeof userEvent.setup>, pin: string) {
-  for (const d of pin) await user.click(screen.getByRole("button", { name: d }));
+/** Answer the problem on screen right, with the keyboard. */
+async function answerOne(user: User) {
+  const [a, b] = document.querySelector("#eq")!.textContent!.split("×").map((x) => parseInt(x));
+  await user.keyboard(String(a * b));
+  await user.keyboard("{Enter}");
 }
 
-describe("kid mode", () => {
-  it("opens to Who's playing? on a signed-in device", async () => {
-    render(<App backend={backend} />);
-    expect(await screen.findByRole("heading", { name: "Who's playing?" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ana/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ben/ })).toBeTruthy();
-    expect(dashboardShown()).toBe(false);
-  });
+async function signUpKid(user: User, code: string, name: string, password = "tiger") {
+  await user.click(await screen.findByRole("button", { name: "Make my account" }));
+  const form = screen.getByRole("form", { name: "Make my account" });
+  await user.type(within(form).getByLabelText(/Family code/), code);
+  await user.type(within(form).getByLabelText(/Pick a name/), name);
+  await user.type(within(form).getByLabelText(/Pick a password/), password);
+  await user.click(within(form).getByRole("button", { name: "Make my account" }));
+}
 
-  it("a child without a PIN goes straight into the game, and can switch back", async () => {
-    const user = userEvent.setup();
+describe("front page", () => {
+  it("offers Play, Sign in, Make my account, and a Grown-ups link", async () => {
     render(<App backend={backend} />);
-    await user.click(await screen.findByRole("button", { name: /Ana/ }));
-    expect(document.querySelector("#eq")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: /Switch player/ }));
-    expect(await screen.findByRole("heading", { name: "Who's playing?" })).toBeTruthy();
-  });
-
-  it("a child with a PIN needs the right one", async () => {
-    const user = userEvent.setup();
-    render(<App backend={backend} />);
-    await user.click(await screen.findByRole("button", { name: /Ben/ }));
-    expect(screen.getByRole("heading", { name: "Hi Ben!" })).toBeTruthy();
-    await typePin(user, "1111");
-    expect(await screen.findByText("Not quite. Try again.")).toBeTruthy();
-    expect(document.querySelector("#eq")).toBeNull();
-    await typePin(user, "4321");
-    await waitFor(() => expect(document.querySelector("#eq")).toBeTruthy());
-  });
-
-  it("each child keeps their own saved game", async () => {
-    const user = userEvent.setup();
-    render(<App backend={backend} />);
-    await user.click(await screen.findByRole("button", { name: /Ana/ }));
-    const eq = document.querySelector("#eq")!.textContent!;
-    const [a, b] = eq.split("×").map((x) => parseInt(x));
-    for (const d of String(a * b)) await user.keyboard(d);
-    await user.keyboard("{Enter}");
-    const keys = Object.keys(localStorage);
-    expect(keys).toEqual(["times-tables-state:" + backend.children[0].id]);
+    expect(await screen.findByRole("button", { name: "Play" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Make my account" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Grown-ups" })).toBeTruthy();
   });
 });
 
-describe("parent gate", () => {
-  it("a child can't reach the grown-up area without the parent's password", async () => {
+describe("playing without an account", () => {
+  it("saves in this browser only; nothing goes to the server", async () => {
     const user = userEvent.setup();
     render(<App backend={backend} />);
-    await user.click(await screen.findByRole("button", { name: "Grown-ups" }));
-    expect(screen.getByRole("heading", { name: "Grown-ups only" })).toBeTruthy();
-    expect(dashboardShown()).toBe(false);
-
-    await user.type(screen.getByLabelText("Password"), "letmein");
-    await user.click(screen.getByRole("button", { name: "Open" }));
-    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "That's not the right password.");
-    expect(dashboardShown()).toBe(false);
-
-    await user.click(screen.getByRole("button", { name: "Back" }));
-    expect(await screen.findByRole("heading", { name: "Who's playing?" })).toBeTruthy();
-    expect(dashboardShown()).toBe(false);
-  });
-
-  it("opens with the right password, and locks again after Done", async () => {
-    const user = userEvent.setup();
-    render(<App backend={backend} />);
-    await user.click(await screen.findByRole("button", { name: "Grown-ups" }));
-    await user.type(screen.getByLabelText("Password"), PASSWORD);
-    await user.click(screen.getByRole("button", { name: "Open" }));
-    expect(await screen.findByRole("heading", { name: "Grown-ups" })).toBeTruthy();
-
-    await user.click(screen.getByRole("button", { name: "Done" }));
-    await user.click(await screen.findByRole("button", { name: "Grown-ups" }));
-    expect(screen.getByRole("heading", { name: "Grown-ups only" })).toBeTruthy();
-    expect(dashboardShown()).toBe(false);
-  });
-
-  it("is locked again after a child plays", async () => {
-    const user = userEvent.setup();
-    render(<App backend={backend} />);
-    await user.click(await screen.findByRole("button", { name: "Grown-ups" }));
-    await user.type(screen.getByLabelText("Password"), PASSWORD);
-    await user.click(screen.getByRole("button", { name: "Open" }));
-    await user.click(await screen.findByRole("button", { name: "Done" }));
-    await user.click(await screen.findByRole("button", { name: /Ana/ }));
+    await user.click(await screen.findByRole("button", { name: "Play" }));
+    expect(document.querySelector("#eq")).toBeTruthy();
+    await answerOne(user);
+    expect(Object.keys(localStorage)).toEqual(["times-tables-state:guest"]);
+    expect(backend.session).toBeNull();
+    expect([...Object.values(backend.rows)].every((m) => m.size === 0)).toBe(true);
     await user.click(screen.getByRole("button", { name: /Switch player/ }));
-    await user.click(await screen.findByRole("button", { name: "Grown-ups" }));
-    expect(screen.getByRole("heading", { name: "Grown-ups only" })).toBeTruthy();
+    expect(await screen.findByText(/Your 1 animal is saved on this computer/)).toBeTruthy();
+  });
+});
+
+describe("kid accounts", () => {
+  it("need the family code", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await signUpKid(user, "WRONG-1234", "leo");
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "That family code doesn't match. Ask a grown-up to check it.");
+    expect(document.querySelector("#eq")).toBeNull();
+  });
+
+  it("with the code: straight into the game, on the family's dashboard", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await signUpKid(user, "rand 4821", "Leo");
+    await waitFor(() => expect(document.querySelector("#eq")).toBeTruthy());
+    expect(backend.children).toEqual([expect.objectContaining({ name: "leo", parentId: "parent-1" })]);
+  });
+
+  it("bring this browser's animals along, then the browser copy is cleared", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await user.click(await screen.findByRole("button", { name: "Play" }));
+    await answerOne(user);
+    await user.click(screen.getByRole("button", { name: /Switch player/ }));
+    await signUpKid(user, "RAND-4821", "mia");
+    await waitFor(() => expect(document.querySelector("#eq")).toBeTruthy());
+    expect(backend.imported).toHaveLength(1);
+    expect(Object.values(backend.imported[0].saved.caught).reduce((a, b) => a + b, 0)).toBe(1);
+    expect(localStorage.getItem("times-tables-state:guest")).toBeNull();
+  });
+
+  it("sign in on another device with username and password, and sign out", async () => {
+    await backend.createChild("Leo", "owl", "leo_r", "rocket");
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+    await user.type(screen.getByLabelText("Your name"), "LEO_R");
+    await user.type(screen.getByLabelText("Password"), "nope");
+    await user.click(screen.getByRole("button", { name: "Let's go" }));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "That name and password don't match.");
+    await user.type(screen.getByLabelText("Password"), "rocket");
+    await user.click(screen.getByRole("button", { name: "Let's go" }));
+    await waitFor(() => expect(document.querySelector("#eq")).toBeTruthy());
+
+    await user.click(screen.getByRole("button", { name: /Switch player/ }));
+    expect(screen.getByRole("heading", { name: "Hi Leo!" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("button", { name: "Play" })).toBeTruthy();
+    expect(backend.session).toBeNull();
+  });
+
+  it("lock for a minute after 5 wrong passwords", async () => {
+    await backend.createChild("Leo", "owl", "leo_r", "rocket");
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+    await user.type(screen.getByLabelText("Your name"), "leo_r");
+    for (let i = 0; i < 5; i++) {
+      await user.type(screen.getByLabelText("Password"), "nope");
+      await user.click(screen.getByRole("button", { name: "Let's go" }));
+      await screen.findByRole("alert");
+    }
+    await user.type(screen.getByLabelText("Password"), "rocket");
+    await user.click(screen.getByRole("button", { name: "Let's go" }));
+    expect(await screen.findByText("Too many tries. Wait a minute, then try again.")).toBeTruthy();
+  });
+
+  it("say so when kid sign-in isn't switched on in Supabase", async () => {
+    backend.anonymousAllowed = false;
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await signUpKid(user, "RAND-4821", "leo");
+    expect(await screen.findByText("Kid sign-in isn't switched on yet. Ask a grown-up.")).toBeTruthy();
+  });
+
+  it("a kid's device never shows the grown-up area", async () => {
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await signUpKid(user, "RAND-4821", "leo");
+    await waitFor(() => expect(document.querySelector("#eq")).toBeTruthy());
+    expect(screen.queryByRole("heading", { name: "Grown-ups" })).toBeNull();
+    expect(screen.queryByText("RAND-4821")).toBeNull();
+  });
+
+  it("each kid keeps their own saved game", async () => {
+    await backend.createChild("Ana", "fox", "ana", "abcd");
+    const user = userEvent.setup();
+    render(<App backend={backend} />);
+    await user.click(await screen.findByRole("button", { name: "Sign in" }));
+    await user.type(screen.getByLabelText("Your name"), "ana");
+    await user.type(screen.getByLabelText("Password"), "abcd");
+    await user.click(screen.getByRole("button", { name: "Let's go" }));
+    await waitFor(() => expect(document.querySelector("#eq")).toBeTruthy());
+    await answerOne(user);
+    expect(Object.keys(localStorage)).toEqual(["times-tables-state:" + backend.children[0].id]);
   });
 });
 
 describe("grown-up area", () => {
-  async function openParent(user: ReturnType<typeof userEvent.setup>) {
+  async function signInParent(user: User) {
     render(<App backend={backend} />);
     await user.click(await screen.findByRole("button", { name: "Grown-ups" }));
+    await user.type(screen.getByLabelText("Email"), "parent@example.test");
     await user.type(screen.getByLabelText("Password"), PASSWORD);
-    await user.click(screen.getByRole("button", { name: "Open" }));
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
     await screen.findByRole("heading", { name: "Grown-ups" });
   }
 
-  it("adds a child with a PIN, and the PIN is never kept in the browser", async () => {
+  it("shows the family code and can make a new one", async () => {
     const user = userEvent.setup();
-    await openParent(user);
-    await user.click(screen.getByRole("button", { name: "Add a child" }));
-    const form = screen.getByRole("form", { name: "New child" });
-    await user.type(within(form).getByLabelText("Name"), "Cleo");
+    await signInParent(user);
+    expect(screen.getByText("RAND-4821")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Make a new code" }));
+    await user.click(screen.getByRole("button", { name: "New code" }));
+    expect(await screen.findByText(/^NEWC-/)).toBeTruthy();
+  });
+
+  it("adds a kid with a username and password", async () => {
+    const user = userEvent.setup();
+    await signInParent(user);
+    await user.click(screen.getByRole("button", { name: "Add a kid" }));
+    const form = screen.getByRole("form", { name: "New kid" });
+    await user.type(within(form).getByLabelText(/Name/), "Cleo");
     await user.click(within(form).getByRole("button", { name: "panda" }));
-    await user.type(within(form).getByLabelText(/PIN/), "8642");
-    await user.click(within(form).getByRole("button", { name: "Add child" }));
-    expect(await screen.findByRole("button", { name: "Edit Cleo" })).toBeTruthy();
-    expect(backend.children.find((c) => c.name === "Cleo")).toMatchObject({ avatar: "panda", hasPin: true });
-    expect(JSON.stringify(localStorage)).not.toContain("8642");
-    expect(JSON.stringify(sessionStorage)).not.toContain("8642");
+    await user.type(within(form).getByLabelText(/Username/), "cleo_r");
+    await user.type(within(form).getByLabelText(/Password/), "moonbeam");
+    await user.click(within(form).getByRole("button", { name: "Add kid" }));
+    expect(await screen.findByText("Signs in as cleo_r")).toBeTruthy();
+    expect(backend.logins.get("cleo_r")).toMatchObject({ password: "moonbeam" });
   });
 
-  it("deletes a child only after confirming", async () => {
+  it("gives an existing kid a sign-in", async () => {
+    backend.children.push({ id: "child-old", name: "Sam", avatar: "bear", username: null, devices: 0, parentId: "parent-1" });
     const user = userEvent.setup();
-    await openParent(user);
+    await signInParent(user);
+    expect(screen.getByText("No sign-in yet")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Edit Sam" }));
+    await user.type(screen.getByLabelText(/Username/), "sam_r");
+    await user.type(screen.getByLabelText(/Password/), "bananas");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Signs in as sam_r")).toBeTruthy();
+  });
+
+  it("deletes a kid only after confirming", async () => {
+    await backend.createChild("Ana", "fox", "ana", "abcd");
+    const user = userEvent.setup();
+    await signInParent(user);
     await user.click(screen.getByRole("button", { name: "Edit Ana" }));
-    await user.click(screen.getByRole("button", { name: "Delete child" }));
-    expect(backend.children.map((c) => c.name)).toContain("Ana");
+    await user.click(screen.getByRole("button", { name: "Delete kid" }));
+    expect(backend.children).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Delete Ana" }));
-    await waitFor(() => expect(backend.children.map((c) => c.name)).toEqual(["Ben"]));
-  });
-
-  it("resets and removes a PIN", async () => {
-    const user = userEvent.setup();
-    await openParent(user);
-    await user.click(screen.getByRole("button", { name: "Edit Ben" }));
-    await user.click(screen.getByRole("button", { name: "Remove PIN" }));
-    await waitFor(() => expect(backend.children.find((c) => c.name === "Ben")!.hasPin).toBe(false));
-  });
-});
-
-describe("signed out", () => {
-  it("shows sign-in, then the grown-up area right after signing in", async () => {
-    await backend.signOut();
-    const user = userEvent.setup();
-    render(<App backend={backend} />);
-    await user.type(await screen.findByLabelText("Email"), "parent@example.test");
-    await user.type(screen.getByLabelText("Password"), PASSWORD);
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(await screen.findByRole("heading", { name: "Grown-ups" })).toBeTruthy();
+    await waitFor(() => expect(backend.children).toHaveLength(0));
   });
 });
