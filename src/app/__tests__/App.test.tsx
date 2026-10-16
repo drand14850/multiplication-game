@@ -52,11 +52,17 @@ describe("playing without an account", () => {
     await user.click(await screen.findByRole("button", { name: "Play" }));
     expect(document.querySelector("#eq")).toBeTruthy();
     await answerOne(user);
-    expect(Object.keys(localStorage)).toEqual(["times-tables-state:guest"]);
+    expect(Object.keys(localStorage).sort()).toEqual(["times-tables-guest-count", "times-tables-state:guest"]);
     expect(backend.session).toBeNull();
     expect([...Object.values(backend.rows)].every((m) => m.size === 0)).toBe(true);
+    // only counts go to the server: "a new browser" and how many answers
+    await waitFor(() => expect(backend.ticks[0]).toEqual({ newGuest: true, answers: 0 }));
     await user.click(screen.getByRole("button", { name: /Switch player/ }));
     expect(await screen.findByText(/Your 1 animal is saved on this computer/)).toBeTruthy();
+    expect(screen.getByText(/Nothing about you is saved/)).toBeTruthy();
+    // leaving the game reports the answer
+    await waitFor(() => expect(backend.ticks.reduce((t, k) => t + k.answers, 0)).toBe(1));
+    expect(backend.ticks.every((k) => Object.keys(k).sort().join() === "answers,newGuest")).toBe(true);
   });
 });
 
@@ -166,6 +172,20 @@ describe("grown-up area", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     await screen.findByRole("heading", { name: "Grown-ups" });
   }
+
+  it("shows site totals only to the site admin", async () => {
+    const user = userEvent.setup();
+    await signInParent(user);
+    expect(screen.queryByRole("heading", { name: "Site totals" })).toBeNull();
+    cleanup();
+    await backend.signOut();
+    backend.totals = { grownups: 3, kids: 5, kidAccounts: 4, guests: 12, questions: 1500, guestQuestions: 234,
+                       questionsToday: 40, questions7d: 600, activeKids7d: 2 };
+    await signInParent(user);
+    expect(screen.getByRole("heading", { name: "Site totals" })).toBeTruthy();
+    expect(screen.getByText("1,734")).toBeTruthy();                 // 1,500 + 234
+    expect(screen.getByText("234 without an account")).toBeTruthy();
+  });
 
   it("shows the family code and can make a new one", async () => {
     const user = userEvent.setup();

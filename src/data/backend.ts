@@ -48,6 +48,19 @@ export interface TrendDay { day: string; problems: number; correct: number; medi
 export interface QuestStat { questId: string; runs: number; wins: number; best: number }
 export interface HistoryRow { a: number; b: number; given: number; correct: boolean; ms: number; mode: string; at: string }
 
+/** Site-wide numbers, for the site admin only. */
+export interface SiteTotals {
+  grownups: number;
+  kids: number;
+  kidAccounts: number;
+  guests: number;            // browsers that played without an account
+  questions: number;         // answers by kids on a family
+  guestQuestions: number;    // answers without an account
+  questionsToday: number;    // all answers today
+  questions7d: number;       // all answers in the last 7 days
+  activeKids7d: number;
+}
+
 export interface Backend {
   getSession(): Promise<Session | null>;
   onAuthChange(cb: (s: Session | null) => void): () => void;
@@ -82,6 +95,11 @@ export interface Backend {
   loadChildState(childId: string): Promise<ServerChildState>;
   /** Sends write-queue batches under whoever is signed in. */
   sender(): Sender;
+
+  /** Kids playing without an account: "a new browser started" and/or "n more answers". No identifiers. */
+  guestTick(newGuest: boolean, answers: number): Promise<boolean>;
+  /** Totals across the whole site; null unless the signed-in grown-up is the site admin. */
+  siteTotals(): Promise<SiteTotals | null>;
 
   /* dashboard */
   factStats(childId: string, merge: boolean): Promise<FactStat[]>;

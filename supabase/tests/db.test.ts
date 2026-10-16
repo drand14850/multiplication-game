@@ -39,7 +39,7 @@ describe("migrations", () => {
   it("enable RLS on every public table", async () => {
     const { rows } = await db.query<{ relname: string; relrowsecurity: boolean }>(
       "select relname, relrowsecurity from pg_class where relnamespace = 'public'::regnamespace and relkind = 'r' order by relname");
-    expect(rows.length).toBe(10);
+    expect(rows.length).toBe(12);
     rows.forEach((r) => expect(r.relrowsecurity, r.relname).toBe(true));
   });
 

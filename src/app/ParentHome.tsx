@@ -1,12 +1,12 @@
 // The grown-up area: family code, kids and their sign-ins, the progress dashboard, settings.
 
 import { useState, type FormEvent } from "react";
-import { AVATARS, type Backend, type Child, type ParentSettings } from "../data/backend";
+import { AVATARS, type Backend, type Child, type ParentSettings, type SiteTotals } from "../data/backend";
 import { Dashboard } from "../dashboard/Dashboard";
 import { AnimalSvg, errorText } from "./common";
 
-export function ParentHome({ backend, kids, settings, onChanged, onSignOut }: {
-  backend: Backend; kids: Child[]; settings: ParentSettings | null;
+export function ParentHome({ backend, kids, settings, totals, onChanged, onSignOut }: {
+  backend: Backend; kids: Child[]; settings: ParentSettings | null; totals?: SiteTotals | null;
   onChanged: () => Promise<void>; onSignOut: () => void;
 }) {
   const [adding, setAdding] = useState(false);
@@ -18,6 +18,8 @@ export function ParentHome({ backend, kids, settings, onChanged, onSignOut }: {
         <h1 className="grow" style={{ textAlign: "left" }}>Grown-ups</h1>
         <button type="button" className="btn quiet" onClick={onSignOut}>Sign out</button>
       </div>
+
+      {totals && <SiteTotalsCard t={totals} />}
 
       {settings && <FamilyCode backend={backend} code={settings.familyCode} onChanged={onChanged} />}
 
@@ -48,6 +50,32 @@ export function ParentHome({ backend, kids, settings, onChanged, onSignOut }: {
 
       {settings && <SettingsCard backend={backend} settings={settings} onChanged={onChanged} />}
     </div>
+  );
+}
+
+const fmt = (n: number) => n.toLocaleString();
+
+/** Only the site admin's account ever gets totals, so only they see this card. */
+function SiteTotalsCard({ t }: { t: SiteTotals }) {
+  const tile = (label: string, value: number, sub?: string) => (
+    <div className="tile"><div className="lbl">{label}</div><div className="val">{fmt(value)}</div>{sub && <div className="lbl">{sub}</div>}</div>
+  );
+  return (
+    <section className="card dash" aria-labelledby="totals-h">
+      <h2 id="totals-h">Site totals</h2>
+      <p className="sub">Only you see this. Every family, plus kids playing without an account (counted as browsers, nothing else recorded).</p>
+      <div className="tiles">
+        {tile("Problems answered", t.questions + t.guestQuestions, `${fmt(t.guestQuestions)} without an account`)}
+        {tile("Today", t.questionsToday)}
+        {tile("Last 7 days", t.questions7d)}
+      </div>
+      <div className="tiles">
+        {tile("Grown-up accounts", t.grownups)}
+        {tile("Kids on a family", t.kids, `${fmt(t.kidAccounts)} with a sign-in`)}
+        {tile("Kids active this week", t.activeKids7d)}
+        {tile("Browsers without an account", t.guests)}
+      </div>
+    </section>
   );
 }
 

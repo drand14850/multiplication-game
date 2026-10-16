@@ -6,7 +6,7 @@ import type { FactStat } from "../dashboard/logic";
 import type { Saved } from "../game/logic/engine";
 import {
   BackendError, normUsername, type Backend, type Child, type HistoryRow, type KidMe, type KidResult,
-  type ParentSettings, type QuestStat, type ServerChildState, type Session, type TrendDay,
+  type ParentSettings, type QuestStat, type ServerChildState, type Session, type SiteTotals, type TrendDay,
 } from "./backend";
 import type { Row, Sender, SendResult, Table } from "./writeQueue";
 
@@ -210,6 +210,18 @@ export class FakeBackend implements Backend {
       },
     };
   }
+
+  /* ---------- site totals ---------- */
+
+  ticks: { newGuest: boolean; answers: number }[] = [];
+  async guestTick(newGuest: boolean, answers: number) {
+    if (!this.online) return false;
+    this.ticks.push({ newGuest, answers });
+    return true;
+  }
+  /** set to show the site totals card (as if this grown-up were the site admin) */
+  totals: SiteTotals | null = null;
+  async siteTotals() { return this.session && !this.session.anonymous ? this.totals : null; }
 
   /* ---------- dashboard: canned answers tests can set ---------- */
 

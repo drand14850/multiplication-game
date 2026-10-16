@@ -3,7 +3,7 @@ import type { FactStat } from "../dashboard/logic";
 import type { Saved } from "../game/logic/engine";
 import {
   BackendError, normUsername, type Backend, type Child, type HistoryRow, type KidError, type KidMe, type KidResult,
-  type ParentSettings, type QuestStat, type ServerChildState, type Session, type TrendDay,
+  type ParentSettings, type QuestStat, type ServerChildState, type Session, type SiteTotals, type TrendDay,
 } from "./backend";
 import type { Row, Sender, SendResult, Table } from "./writeQueue";
 
@@ -218,6 +218,26 @@ export class SupabaseBackend implements Backend {
         const retry = !res.status || res.status >= 500 || res.status === 401 || res.status === 408 || res.status === 429;
         return { ok: false, retry, error: res.error.message };
       },
+    };
+  }
+
+  /* ---------- site totals ---------- */
+
+  async guestTick(newGuest: boolean, answers: number): Promise<boolean> {
+    const { error } = await this.sb.rpc("guest_tick", { p_new_guest: newGuest, p_answers: answers });
+    return !error;
+  }
+
+  async siteTotals(): Promise<SiteTotals | null> {
+    const { data, error } = await this.sb.rpc("site_totals");
+    if (error) return null;                        // not set up yet, or offline: just don't show it
+    const r = ((data ?? []) as Record<string, number | string>[])[0];
+    if (!r) return null;
+    const n = (k: string) => Number(r[k] ?? 0);
+    return {
+      grownups: n("grownups"), kids: n("kids"), kidAccounts: n("kid_accounts"), guests: n("guests"),
+      questions: n("questions"), guestQuestions: n("guest_questions"), questionsToday: n("questions_today"),
+      questions7d: n("questions_7d"), activeKids7d: n("active_kids_7d"),
     };
   }
 

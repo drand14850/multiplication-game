@@ -60,7 +60,13 @@ describe("adaptive picking", () => {
     const rng = seededRng(seed);
     const picker = newPicker();
     const counts = new Map<string, number>();
-    const weight = (a: number, b: number) => factWeight(recent, factKey(a, b), T);
+    // history doesn't change during these draws, so work out each fact's weight once
+    const cache = new Map<string, number>();
+    const weight = (a: number, b: number) => {
+      const k = factKey(a, b);
+      if (!cache.has(k)) cache.set(k, factWeight(recent, k, T));
+      return cache.get(k)!;
+    };
     for (let i = 0; i < n; i++) {
       const { fact } = pickNextFact({}, picker, rng, weight);
       const k = factKey(fact.a, fact.b);

@@ -17,6 +17,7 @@ export function Landing({ guestAnimals, onPlay, onKidSignIn, onKidSignUp, onGrow
         {guestAnimals > 0
           ? `Your ${guestAnimals} ${guestAnimals === 1 ? "animal is" : "animals are"} saved on this computer.`
           : "Your animals stay on this computer."}
+        {" "}We only count how many problems get solved. Nothing about you is saved.
       </p>
       <div className="row">
         <button type="button" className="btn quiet grow" onClick={onKidSignIn}>Sign in</button>
@@ -119,7 +120,7 @@ export function KidSignUp({ backend, guestAnimals, onDone, onBack }: {
         {error && <div className="error" role="alert">{error}</div>}
         <button className="btn big" type="submit" disabled={busy}>Make my account</button>
       </form>
-      <p className="center small">No family code? Go back and tap Play. Your animals stay on this computer.</p>
+      <p className="center small">No family code? Go back and tap Play. Your animals stay on this computer, and nothing about you is saved.</p>
       <button type="button" className="link" onClick={onBack}>Back</button>
     </div>
   );

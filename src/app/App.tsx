@@ -8,8 +8,9 @@
 //   a grown-up          → family code, kids, dashboard, settings
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Backend, Child, KidMe, ParentSettings, Session } from "../data/backend";
+import type { Backend, Child, KidMe, ParentSettings, Session, SiteTotals } from "../data/backend";
 import { LocalStore } from "../data/gameStore";
+import { GuestCounter, GuestStore } from "../data/guestCounter";
 import { WriteQueue } from "../data/writeQueue";
 import { caughtCount } from "../game/logic/collectibles";
 import type { Saved } from "../game/logic/engine";
@@ -38,8 +39,12 @@ export function App({ backend }: { backend: Backend }) {
   const [kidMenu, setKidMenu] = useState(false);
   const [kids, setKids] = useState<Child[]>([]);
   const [settings, setSettings] = useState<ParentSettings | null>(null);
+  const [totals, setTotals] = useState<SiteTotals | null>(null);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [loadError, setLoadError] = useState("");
+
+  // Kids playing without an account are counted, never recorded (see guestCounter.ts).
+  const [guestCounter] = useState(() => new GuestCounter((g, n) => backend.guestTick(g, n)));
 
   useEffect(() => {
     let live = true;
@@ -74,8 +79,8 @@ export function App({ backend }: { backend: Backend }) {
   // a grown-up: their kids and settings
   const refresh = useCallback(async () => {
     try {
-      const [k, st] = await Promise.all([backend.listChildren(), backend.getSettings()]);
-      setKids(k); setSettings(st); setLoadError("");
+      const [k, st, tot] = await Promise.all([backend.listChildren(), backend.getSettings(), backend.siteTotals()]);
+      setKids(k); setSettings(st); setTotals(tot); setLoadError("");
     } catch (e) {
       setLoadError(errorText(e));
     }
@@ -83,8 +88,8 @@ export function App({ backend }: { backend: Backend }) {
   useEffect(() => {
     if (!userId || isKidDevice) return;
     let live = true;
-    Promise.all([backend.listChildren(), backend.getSettings()]).then(([k, st]) => {
-      if (live) { setKids(k); setSettings(st); setLoadError(""); setLoadedFor(userId); }
+    Promise.all([backend.listChildren(), backend.getSettings(), backend.siteTotals()]).then(([k, st, tot]) => {
+      if (live) { setKids(k); setSettings(st); setTotals(tot); setLoadError(""); setLoadedFor(userId); }
     }).catch((e) => { if (live) setLoadError(errorText(e)); });
     return () => { live = false; };
   }, [backend, userId, isKidDevice]);
@@ -109,7 +114,7 @@ export function App({ backend }: { backend: Backend }) {
       );
     }
     if (loadedFor !== session.userId) return <div className="screen" aria-busy="true" />;
-    return <ParentHome backend={backend} kids={kids} settings={settings} onChanged={refresh} onSignOut={signOut} />;
+    return <ParentHome backend={backend} kids={kids} settings={settings} totals={totals} onChanged={refresh} onSignOut={signOut} />;
   }
 
   /* ---------- a kid's device ---------- */
@@ -129,7 +134,7 @@ export function App({ backend }: { backend: Backend }) {
   const home = () => setFront("home");
   switch (front) {
     case "guest":
-      return <Game key="guest" store={new LocalStore(GUEST)} player={{ name: "Playing without an account", avatar: "fox", onSwitch: home }} />;
+      return <GuestGame counter={guestCounter} onSwitch={home} />;
     case "kidSignIn":
       return <KidSignIn backend={backend} onDone={refreshKid} onBack={home} />;
     case "kidSignUp":
@@ -148,4 +153,14 @@ export function App({ backend }: { backend: Backend }) {
       return <Landing guestAnimals={guestAnimals} onPlay={() => setFront("guest")} onKidSignIn={() => setFront("kidSignIn")}
                       onKidSignUp={() => setFront("kidSignUp")} onGrownUps={() => setFront("grownups")} />;
   }
+}
+
+/** Playing without an account: saved in this browser, and only counted on the server. */
+function GuestGame({ counter, onSwitch }: { counter: GuestCounter; onSwitch: () => void }) {
+  const [store] = useState(() => new GuestStore(counter, GUEST));
+  useEffect(() => {
+    counter.start();
+    return () => counter.stop();
+  }, [counter]);
+  return <Game store={store} player={{ name: "Playing without an account", avatar: "fox", onSwitch }} />;
 }
