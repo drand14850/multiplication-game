@@ -4,7 +4,7 @@
 
 import { ANIMALS, NAMES } from "./animals";
 
-export type ElementKey = "water" | "earth" | "fire" | "ice" | "emerald" | "ruby" | "golden" | "diamond";
+export type ElementKey = "water" | "earth" | "fire" | "ice" | "emerald" | "ruby" | "golden" | "diamond" | "tropical";
 export interface Element { label: string; color: string; dark: string; ramp: string[]; animals: string[] }
 
 export const ELEMENTS: Record<ElementKey, Element> = {
@@ -23,7 +23,10 @@ export const ELEMENTS: Record<ElementKey, Element> = {
   golden:  { label: "Golden",  color: "#FFCC33", dark: "#4A3300",
              ramp: ["#C98A0B","#E8B020","#FFD54A","#FFF3B8"], animals: ["Bear","Elephant","Penguin","Cat","Owl","Dog","Panda","Snake"] },
   diamond: { label: "Diamond", color: "#A8F0F5", dark: "#2A1F55",
-             ramp: ["#8C7CF8","#5CC8F0","#A8F0F5","#FFFFFF"], animals: ["Panda","Owl","Elephant","Whale","Fox","Axolotl","Bunny","Chameleon"] }
+             ramp: ["#8C7CF8","#5CC8F0","#A8F0F5","#FFFFFF"], animals: ["Panda","Owl","Elephant","Whale","Fox","Axolotl","Bunny","Chameleon"] },
+  // --- added after the port (not in the reference): same recolor approach, new palette ---
+  tropical: { label: "Tropical", color: "#2EC4B6", dark: "#0B3B3A",
+             ramp: ["#0B7A75","#14B8A6","#F9C74F","#FFF3C4"], animals: ["Frog","Turtle","Chameleon","Snake","Lizard","Elephant","Whale","Axolotl"] }
 };
 
 export function lum(h: string): number {
@@ -106,6 +109,14 @@ export const DECOR: Record<ElementKey, { back: string; front: string }> = {
     back: "",
     front: '<g fill="#FFFFFF">' + sparkle(26, 40, 1.4) + sparkle(172, 30, 1.1) + sparkle(180, 160, 1.2) +
            sparkle(22, 160, 0.8) + sparkle(150, 12, 0.7) + "</g>"
+  },
+  // added after the port: palm fronds behind, a hibiscus flower and a leaf in front
+  tropical: {
+    back: '<g fill="#2FBF71"><path d="M100 46 Q64 8 22 26 Q60 32 96 54 Z"/><path d="M100 46 Q136 8 178 26 Q140 32 104 54 Z"/>' +
+          '<path d="M100 48 Q92 10 104 0 Q114 22 106 52 Z"/></g>',
+    front: '<g fill="#FF5DA2"><circle cx="30" cy="150" r="9"/><circle cx="41" cy="158" r="9"/><circle cx="37" cy="171" r="9"/>' +
+           '<circle cx="23" cy="171" r="9"/><circle cx="19" cy="158" r="9"/></g><circle cx="30" cy="162" r="5" fill="#FFD15C"/>' +
+           '<path d="M178 176 Q190 152 170 140 Q160 162 178 176 Z" fill="#2FBF71"/>'
   }
 };
 

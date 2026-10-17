@@ -12,7 +12,7 @@ export interface Collectible {
   svg: string;
 }
 
-/** Everything that can go in the backpack, in collection order (82). */
+/** Everything that can go in the backpack, in collection order (82 from the reference + 8 Tropical). */
 export const COLLECTIBLES: readonly Collectible[] = (() => {
   const out: Collectible[] = [];
   ANIMALS.forEach((art, i) => {
@@ -39,6 +39,7 @@ export const GROUPS: readonly { key: Group; label: string }[] = [
   { key: "ruby",    label: "Ruby animals" },
   { key: "golden",  label: "Golden animals" },
   { key: "diamond", label: "Diamond animals" },
+  { key: "tropical", label: "Tropical animals" },   // added after the port
 ];
 
 export function isElementGroup(g: Group | string): g is ElementKey {

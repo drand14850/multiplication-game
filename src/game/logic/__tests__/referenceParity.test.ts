@@ -27,11 +27,14 @@ function loadReference(): Ref {
 const ref = loadReference();
 
 describe("port matches the reference file", () => {
-  it("has the same 82 collectibles, in order, with identical art", () => {
-    expect(COLLECTIBLES).toHaveLength(82);
+  // Additions since the port (Tropical) only ever come after the reference's items, so
+  // existing backpacks keep every animal they had.
+  const ADDED_GROUPS = ["tropical"];
+
+  it("keeps all 82 reference collectibles first, in order, with identical art", () => {
     expect(ref.COLLECTIBLES).toHaveLength(82);
-    COLLECTIBLES.forEach((c, i) => {
-      const r = ref.COLLECTIBLES[i];
+    ref.COLLECTIBLES.forEach((r, i) => {
+      const c = COLLECTIBLES[i];
       expect(c.name).toBe(r.name);
       expect(c.label).toBe(r.label);
       expect(c.group).toBe(r.group);
@@ -39,9 +42,17 @@ describe("port matches the reference file", () => {
     });
   });
 
+  it("only adds the Tropical animals after them", () => {
+    const added = COLLECTIBLES.slice(82);
+    expect(added).toHaveLength(8);
+    added.forEach((c) => expect(ADDED_GROUPS).toContain(c.group));
+    expect(added.map((c) => c.id)).toEqual(["tropical-frog", "tropical-turtle", "tropical-chameleon", "tropical-snake",
+      "tropical-lizard", "tropical-elephant", "tropical-whale", "tropical-axolotl"]);
+  });
+
   it("uses stable lowercase ids like fire-fox", () => {
     const ids = COLLECTIBLES.map((c) => c.id);
-    expect(new Set(ids).size).toBe(82);
+    expect(new Set(ids).size).toBe(COLLECTIBLES.length);
     expect(ids).toContain("cat");
     expect(ids).toContain("axolotl");
     expect(ids).toContain("fire-fox");
@@ -49,9 +60,14 @@ describe("port matches the reference file", () => {
     ids.forEach((id) => expect(id).toMatch(/^[a-z]+(-[a-z]+)?$/));
   });
 
-  it("has identical emblems, quests and backpack groups", () => {
-    expect(EMBLEMS).toEqual(ref.EMBLEMS);
-    expect(QUESTS).toEqual(ref.QUESTS);
-    expect(GROUPS).toEqual(ref.GROUPS);
+  it("keeps the reference's emblems, quests and backpack groups, plus Tropical", () => {
+    const { tropical, ...emblems } = EMBLEMS;
+    expect(emblems).toEqual(ref.EMBLEMS);
+    expect(tropical).toBeTruthy();
+    expect(QUESTS.filter((q) => !ADDED_GROUPS.includes(q.id))).toEqual(ref.QUESTS);
+    expect(GROUPS.filter((g) => !ADDED_GROUPS.includes(g.key))).toEqual(ref.GROUPS);
+    // quests stay in length order, and Diamond is still the longest
+    expect(QUESTS.map((q) => q.len)).toEqual([...QUESTS.map((q) => q.len)].sort((x, y) => x - y));
+    expect(QUESTS.at(-1)!.id).toBe("diamond");
   });
 });

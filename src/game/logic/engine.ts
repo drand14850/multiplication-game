@@ -7,7 +7,7 @@ import { isRare, nextAnimal } from "./animalBag";
 import { BY_ID, COLLECTIBLES, caughtCount, isElementGroup, type Caught } from "./collectibles";
 import { DELAY, MAX_DIGITS } from "./constants";
 import { factKey, newPicker, pickNextFact, type FactWeight, type PickerState } from "./facts";
-import { addTry, cleanRecent, factWeight, type Recent } from "./mastery";
+import { addTry, cleanRecent, factWeight, hardestFacts, type Recent } from "./mastery";
 import { questById, type QuestDef, type QuestId } from "./quests";
 import { cleanLoadedPile, onCorrect, onMiss, type ReviewPile } from "./reviewPile";
 import { rollElement, rollMystery } from "./rewards";
@@ -99,6 +99,7 @@ export class GameEngine {
   private outbox: Effect[] = [];
   private seq = 0;
   private bgV = 0;
+  private mysteryRound = 0;    // how many times "Try again" was pressed on today's Mystery Box
 
   constructor(ctx: EngineCtx, saved?: Partial<Saved> | null) {
     this.ctx = ctx;
@@ -160,7 +161,9 @@ export class GameEngine {
 
   nextQuestion(): void {
     const s = this.s;
-    const { fact, wasReview } = pickNextFact(s.weak, s.picker, this.ctx.rng, this.weight());
+    const hard = this.mysteryFact();
+    const { fact, wasReview } = hard ? { fact: hard, wasReview: false } : pickNextFact(s.weak, s.picker, this.ctx.rng, this.weight());
+    if (hard) { s.picker.lastKey = factKey(hard.a, hard.b); s.picker.sinceReview++; }
     s.current = { a: fact.a, b: fact.b, answer: fact.a * fact.b, wasReview, seq: ++this.seq };
     s.typed = "";
     s.phase = "ask";
@@ -296,10 +299,26 @@ export class GameEngine {
     this.s.note = { text: "", win: false };
   }
 
-  startQuest(id: QuestId): void {
+  /**
+   * The Mystery Box asks the fact this kid has had the hardest time with (not in the
+   * reference, which picks at random). Each "Try again" moves on to the next-hardest, so the
+   * answer just shown on the correction card can't simply be typed back in.
+   * With no history (or adaptive picking off) it picks like the reference.
+   */
+  private mysteryFact(): { a: number; b: number } | null {
+    const ad = this.ctx.adaptive;
+    if (!ad || this.s.quest?.def.id !== "mystery") return null;
+    const list = hardestFacts(this.s.recent, ad.fluencyMs);
+    if (!list.length) return null;
+    const [a, b] = list[this.mysteryRound % list.length].split("x").map(Number);
+    return { a, b };
+  }
+
+  startQuest(id: QuestId, retry = false): void {
     const s = this.s;
     const def = questById(id);
     if (def.id === "mystery" && s.mysteryDay === this.ctx.today()) return;   // the card is disabled
+    if (def.id === "mystery") this.mysteryRound = retry ? this.mysteryRound + 1 : 0;
     s.quest = { def, done: 0, runId: this.ctx.newId(), missAt: null, ended: false };
     this.emit({ type: "questStart", runId: s.quest.runId, questId: def.id, length: def.len });
     s.panel = "none";
@@ -312,7 +331,7 @@ export class GameEngine {
   tryAgain(): void {
     const s = this.s;
     if (s.phase !== "correcting" || !s.quest) return;
-    this.startQuest(s.quest.def.id);
+    this.startQuest(s.quest.def.id, true);
   }
 
   /** "Stop" after a quest miss. */

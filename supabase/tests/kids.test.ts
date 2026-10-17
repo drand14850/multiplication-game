@@ -254,6 +254,21 @@ describe("adaptive picking data", () => {
   });
 });
 
+describe("the Tropical quest (added later)", () => {
+  it("accepts tropical quest runs and catches, alongside existing backpacks", async () => {
+    const dev = await device();
+    const kid = (await signUp(dev, codeA, "island_kid", "abcd")).child_id!;
+    const run = uuid();
+    await asUser(db, dev, async (tx) => {
+      await tx.query("insert into catches (id, child_id, collectible_id, source, created_at) values ($1, $2, 'fire-fox', 'quest', now())", [uuid(), kid]);
+      await tx.query("insert into quest_runs (id, child_id, quest_id, length, reached, result, reward_id, started_at) values ($1, $2, 'tropical', 16, 16, 'won', 'tropical-frog', now())", [run, kid]);
+      await tx.query("insert into catches (id, child_id, collectible_id, source, quest_run_id, created_at) values ($1, $2, 'tropical-frog', 'quest', $3, now())", [uuid(), kid, run]);
+    });
+    const bag = await asUser(db, dev, async (tx) => (await tx.query<{ collectible_id: string }>("select collectible_id from backpack order by 1")).rows);
+    expect(bag.map((r) => r.collectible_id)).toEqual(["fire-fox", "tropical-frog"]);
+  });
+});
+
 describe("progress carried over from playing without an account", () => {
   it("'import' catches skip the once-a-day rules", async () => {
     const dev = await device();

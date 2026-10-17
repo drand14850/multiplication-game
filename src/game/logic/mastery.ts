@@ -61,6 +61,26 @@ export function factWeight(recent: Recent, key: string, thresholdMs: number): nu
   return ADAPTIVE_WEIGHT[statusOf(recent[key], thresholdMs)];
 }
 
+/**
+ * Every fact tried so far, hardest first: shaky ones (least accurate, then slowest), then
+ * slow ones (slowest first), then fluent ones (slowest first). Used by the Mystery Box.
+ */
+export function hardestFacts(recent: Recent, thresholdMs: number): string[] {
+  const rank: Record<FactStatus, number> = { shaky: 0, slow: 1, fluent: 2, unseen: 3 };
+  const info = Object.entries(recent).filter(([, t]) => t.length).map(([k, t]) => {
+    const right = t.filter((x) => x[0] === 1);
+    return {
+      k, status: statusOf(t, thresholdMs),
+      acc: right.length / t.length,
+      ms: median(right.map((x) => x[1])) ?? median(t.map((x) => x[1])) ?? 0,
+    };
+  });
+  info.sort((x, y) => rank[x.status] - rank[y.status]
+    || (x.status === "shaky" ? x.acc - y.acc || y.ms - x.ms : y.ms - x.ms || x.acc - y.acc)
+    || (x.k < y.k ? -1 : 1));
+  return info.map((i) => i.k);
+}
+
 /** Drop anything that isn't a 2–12 fact with sane tries (from storage or the server). */
 export function cleanRecent(saved: unknown): Recent {
   const out: Recent = {};

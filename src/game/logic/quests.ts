@@ -1,4 +1,4 @@
-export type QuestId = "mystery" | "pick" | "water" | "earth" | "fire" | "ice" | "emerald" | "ruby" | "golden" | "diamond";
+export type QuestId = "mystery" | "pick" | "water" | "earth" | "fire" | "ice" | "emerald" | "ruby" | "golden" | "diamond" | "tropical";
 
 export interface QuestDef { id: QuestId; name: string; len: number; color: string; blurb: string }
 
@@ -9,6 +9,7 @@ export const QUESTS: readonly QuestDef[] = [
   { id: "water",   name: "Water Quest",      len: 10, color: "#5FC6E8", blurb: "Win a water animal" },
   { id: "earth",   name: "Earth Quest",      len: 12, color: "#7CC46A", blurb: "Win an earth animal" },
   { id: "fire",    name: "Fire Quest",       len: 14, color: "#FF8A3D", blurb: "Win a fire animal" },
+  { id: "tropical", name: "Tropical Quest",  len: 16, color: "#2EC4B6", blurb: "Win a tropical animal" },   // added after the port
   { id: "ice",     name: "Ice Quest",        len: 18, color: "#BDE3F7", blurb: "Win an ice animal" },
   { id: "emerald", name: "Emerald Quest",    len: 19, color: "#3DD68C", blurb: "Win an emerald animal" },
   { id: "ruby",    name: "Ruby Quest",       len: 21, color: "#FF4F7B", blurb: "Win a ruby animal" },

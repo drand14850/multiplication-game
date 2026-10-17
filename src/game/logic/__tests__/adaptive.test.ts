@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { classify } from "../../../dashboard/logic";
 import { GameEngine, type EngineCtx } from "../engine";
 import { factKey, newPicker, pickNextFact, randomFact, type Fact } from "../facts";
-import { ADAPTIVE_WEIGHT, addTry, cleanRecent, factWeight, statusOf, type Recent, type Try } from "../mastery";
+import { COLLECTIBLES } from "../collectibles";
+import { ADAPTIVE_WEIGHT, addTry, cleanRecent, factWeight, hardestFacts, statusOf, type Recent, type Try } from "../mastery";
 import { seededRng } from "../rng";
 
 const T = 3000;
@@ -157,5 +158,68 @@ describe("in the game", () => {
     const off = new GameEngine(ctx(7), { recent });
     const plain = randomFact(seededRng(7));
     expect({ a: off.s.current.a, b: off.s.current.b }).toEqual(plain);
+  });
+});
+
+describe("Mystery Box asks the hardest fact", () => {
+  const ctx = (adaptive = true): EngineCtx =>
+    ({ rng: seededRng(11), today: () => "2026-10-17", newId: () => "run", adaptive: adaptive ? { fluencyMs: T } : undefined });
+  const history: Recent = {
+    "2x2": [fast, fast, fast, fast, fast],          // fluent
+    "9x9": [slowRight, slowRight, slowRight, slowRight],  // slow
+    "7x8": [wrong, wrong, fast, wrong, fast],      // shaky, 40%
+    "6x7": [wrong, fast, fast, wrong, fast],       // shaky, 60%
+  };
+
+  it("orders facts hardest first", () => {
+    expect(hardestFacts(history, T)).toEqual(["7x8", "6x7", "9x9", "2x2"]);
+  });
+
+  it("the box opens on his hardest fact, and Try again moves to the next-hardest", () => {
+    const e = new GameEngine(ctx(), { recent: history });
+    e.startQuest("mystery");
+    expect(factKey(e.s.current.a, e.s.current.b)).toBe("7x8");
+    e.type("1"); e.check(1000);                     // wrong
+    e.tryAgain();
+    expect(factKey(e.s.current.a, e.s.current.b)).toBe("6x7");
+    e.type("1"); e.check(1000);
+    e.tryAgain();
+    // 6x7 got another miss, so it's now even shakier than 7x8: the list re-ranks
+    expect(["7x8", "6x7", "9x9"]).toContain(factKey(e.s.current.a, e.s.current.b));
+  });
+
+  it("opening it fresh starts again from the hardest", () => {
+    const e = new GameEngine(ctx(), { recent: history });
+    e.startQuest("mystery");
+    e.quit();
+    e.startQuest("mystery");
+    expect(factKey(e.s.current.a, e.s.current.b)).toBe("7x8");
+  });
+
+  it("with no history, or adaptive off, it picks at random like the reference", () => {
+    const fresh = new GameEngine(ctx());
+    const plain = new GameEngine(ctx(false), { recent: history });
+    fresh.startQuest("mystery");
+    plain.startQuest("mystery");
+    expect(fresh.s.current.a).toBeGreaterThanOrEqual(2);
+    expect(factKey(plain.s.current.a, plain.s.current.b)).not.toBe("7x8");
+  });
+
+  it("other quests are unaffected", () => {
+    const e = new GameEngine(ctx(), { recent: history });
+    e.startQuest("water");
+    expect(e.s.quest?.def.id).toBe("water");
+  });
+});
+
+describe("additions never touch existing backpacks", () => {
+  it("a backpack saved before Tropical existed loads with everything in it, plus 8 new empty slots", () => {
+    const before = { cat: 3, axolotl: 1, "fire-fox": 2, "golden-penguin": 1, "diamond-owl": 1 };
+    const e = new GameEngine({ rng: seededRng(1), today: () => "2026-10-17", newId: () => "x" },
+                             { weak: { "7x8": 2 }, caught: before, rarePickDay: "", mysteryDay: "" });
+    expect(e.s.caught).toEqual(before);
+    expect(e.s.weak).toEqual({ "7x8": 2 });
+    expect(e.snapshot().caught).toEqual(before);
+    expect(COLLECTIBLES.filter((c) => c.group === "tropical").every((c) => !e.s.caught[c.id])).toBe(true);
   });
 });

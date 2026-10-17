@@ -30,6 +30,13 @@ export const EMBLEMS: Record<string, string> = {
   golden: '<path d="M30 150 L40 60 L75 100 L100 40 L125 100 L160 60 L170 150 Z" fill="#FFCC33"/>' +
           '<rect x="30" y="140" width="140" height="26" rx="6" fill="#E8B020"/>' +
           '<g fill="#FF4F7B"><circle cx="40" cy="58" r="11"/><circle cx="100" cy="38" r="11"/><circle cx="160" cy="58" r="11"/></g>',
+  // added after the port: a palm tree on a little island
+  tropical: '<ellipse cx="100" cy="172" rx="72" ry="16" fill="#F9C74F"/>' +
+            '<path d="M104 170 Q94 122 112 72" fill="none" stroke="#9C6B3C" stroke-width="12" stroke-linecap="round"/>' +
+            '<g fill="#2FBF71"><path d="M112 72 Q80 40 42 56 Q80 58 110 78 Z"/><path d="M112 72 Q146 38 182 56 Q146 60 114 78 Z"/>' +
+            '<path d="M112 72 Q100 30 118 12 Q126 40 116 74 Z"/><path d="M112 74 Q72 72 56 104 Q84 84 110 76 Z"/>' +
+            '<path d="M112 74 Q156 76 166 106 Q140 86 114 76 Z"/></g>' +
+            '<g fill="#7A4E2A"><circle cx="106" cy="82" r="6"/><circle cx="119" cy="84" r="6"/></g>',
   diamond: '<path d="M58 56 H142 L176 94 L100 178 L24 94 Z" fill="#A8F0F5"/>' +
            '<path d="M24 94 H176 M58 56 L78 94 L100 178 L122 94 L142 56 M78 94 L100 56 L122 94" fill="none" stroke="#5CC8F0" stroke-width="5" stroke-linejoin="round"/>'
 };

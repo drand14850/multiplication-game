@@ -138,7 +138,8 @@ test("dashboard at laptop width (1280), with numbers hand-checked against raw ro
   // hand checks: on-screen numbers vs direct SQL on the raw rows
   const raw = async (q: string) => Number((await db.query<{ n: number }>(q, [kid])).rows[0].n);
   const found = await raw("select count(distinct collectible_id)::int as n from catches where child_id = $1");
-  await expect(page.locator(".hero")).toContainText(`${found} of 82`);
+  const total = await raw("select count(*)::int as n from collectibles where $1::uuid is not null");
+  await expect(page.locator(".hero")).toContainText(`${found} of ${total}`);
   const wins = await raw("select count(*)::int as n from quest_runs where child_id = $1 and result = 'won'");
   await expect(page.locator(".tile", { hasText: "Quests won" }).locator(".val")).toHaveText(String(wins));
   const inWindow = await raw(`select count(*)::int as n from attempts where child_id = $1

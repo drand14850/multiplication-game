@@ -190,7 +190,7 @@ test.describe("offline play and sync", () => {
     await page.getByRole("button", { name: /Switch player/ }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
     await kidSignIn(page, "ben", "bear");
-    expect(await page.locator("#bagCount").textContent()).toBe("0/82");     // Ben starts with his own empty backpack
+    expect(await page.locator("#bagCount").textContent()).toMatch(/^0\/\d+$/);     // Ben starts with his own empty backpack
     await play(page, 2);
     await page.getByRole("button", { name: /Switch player/ }).click();
     await page.getByRole("button", { name: "Sign out" }).click();
