@@ -39,6 +39,12 @@ describe("kids playing without an account", () => {
     expect(rows[0]).toMatchObject({ new_guests: 2, answers: 17 });
   });
 
+  it("files each day under the US Eastern date", async () => {
+    const { rows } = await db.query<{ ok: boolean }>(
+      "select bool_and(day = (now() at time zone 'America/New_York')::date) as ok from guest_counts");
+    expect(rows[0].ok).toBe(true);
+  });
+
   it("can't add more than 1 browser and 50 answers per call, or go negative", async () => {
     const before = (await db.query<{ g: number; a: number }>("select sum(new_guests)::int g, sum(answers)::int a from guest_counts")).rows[0];
     await tick(true, 100000);
