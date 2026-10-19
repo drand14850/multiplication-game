@@ -46,15 +46,16 @@ export function addTry(recent: Recent, key: string, correct: boolean, ms: number
 }
 
 /**
- * How likely each fact is to be picked, relative to the others ("medium" strength).
- * Against a fact at weight 1: a fluent fact comes up 1/4 as often, a shaky one 2.5x as often.
+ * How likely each fact is to be picked, relative to the others ("gentle" strength, since
+ * 2026-10-19; "medium" was 0.25 / 1.5 / 2.5 / 1.5 and felt too hard).
+ * Against a fact at weight 1: a fluent fact comes up half as often, a shaky one 1.5x as often.
  * Fluent facts never drop to zero, so they stay fresh.
  */
 export const ADAPTIVE_WEIGHT: Readonly<Record<FactStatus, number>> = {
-  fluent: 0.25,
-  slow: 1.5,
-  shaky: 2.5,
-  unseen: 1.5,
+  fluent: 0.5,
+  slow: 1.25,
+  shaky: 1.5,
+  unseen: 1.25,
 };
 
 export function factWeight(recent: Recent, key: string, thresholdMs: number): number {

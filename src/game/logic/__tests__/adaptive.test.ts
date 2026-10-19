@@ -42,12 +42,12 @@ describe("fact history", () => {
     }
   });
 
-  it("weights: fluent 1/4, shaky 2.5x, slow and unseen 1.5x", () => {
+  it("weights (gentle): fluent 1/2, shaky 1.5x, slow and unseen 1.25x", () => {
     const r: Recent = { "2x2": [fast, fast, fast, fast, fast], "7x8": [wrong, wrong, fast], "9x9": [slowRight, slowRight, slowRight, slowRight] };
-    expect(factWeight(r, "2x2", T)).toBe(0.25);
-    expect(factWeight(r, "7x8", T)).toBe(2.5);
-    expect(factWeight(r, "9x9", T)).toBe(1.5);
-    expect(factWeight(r, "6x6", T)).toBe(1.5);
+    expect(factWeight(r, "2x2", T)).toBe(0.5);
+    expect(factWeight(r, "7x8", T)).toBe(1.5);
+    expect(factWeight(r, "9x9", T)).toBe(1.25);
+    expect(factWeight(r, "6x6", T)).toBe(1.25);
     expect(ADAPTIVE_WEIGHT.fluent).toBeGreaterThan(0);          // known facts never disappear
   });
 
@@ -76,14 +76,14 @@ describe("adaptive picking", () => {
     return counts;
   }
 
-  it("shaky facts come up about 10x as often as fluent ones (2.5 / 0.25)", () => {
+  it("shaky facts come up about 3x as often as fluent ones (1.5 / 0.5)", () => {
     const weak = ["7x8", "8x7", "6x7", "7x6", "8x8", "6x8"];
     const counts = draw(mostlyFluent(weak), 60_000, 1);
     const per = (keys: string[]) => keys.reduce((t, k) => t + (counts.get(k) ?? 0), 0) / keys.length;
     const fluentKeys = [...counts.keys()].filter((k) => !weak.includes(k));
     const ratio = per(weak) / per(fluentKeys);
-    expect(ratio).toBeGreaterThan(8.5);
-    expect(ratio).toBeLessThan(11.5);
+    expect(ratio).toBeGreaterThan(2.6);
+    expect(ratio).toBeLessThan(3.4);
   });
 
   it("still shows every fact, so every table 2–12 appears as both factors", () => {
@@ -148,8 +148,9 @@ describe("in the game", () => {
       if (weak.includes(factKey(e.s.current.a, e.s.current.b))) hits++;
       e.nextQuestion();
     }
-    // 8 weak facts of 121: about 7% if uniform; with the weights about 40%
-    expect(hits / 400).toBeGreaterThan(0.3);
+    // 8 weak facts of 121: about 7% if uniform; with the gentle weights about 17%
+    expect(hits / 400).toBeGreaterThan(0.11);
+    expect(hits / 400).toBeLessThan(0.25);
     expect(seen.length).toBe(400);
   });
 
