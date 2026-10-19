@@ -55,6 +55,7 @@ export interface SiteTotals {
   kidAccounts: number;
   guests: number;            // browsers that played without an account
   questions: number;         // answers by kids on a family
+  questionsOthers: number;   // of those, by kids on families other than the admin's
   guestQuestions: number;    // answers without an account
   questionsToday: number;    // all answers today
   questions7d: number;       // all answers in the last 7 days

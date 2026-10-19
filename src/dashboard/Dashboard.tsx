@@ -5,7 +5,7 @@ import { AnimalSvg } from "../app/common";
 import type { Backend, Child, QuestStat, ServerChildState, TrendDay } from "../data/backend";
 import { QUESTS } from "../game/logic/quests";
 import { FactGrid } from "./FactGrid";
-import { backpackProgress, formatSeconds, reviewList, STATUS_GLYPH, STATUS_LABEL, weakest, type FactStat } from "./logic";
+import { backpackProgress, formatSeconds, reviewList, STATUS_GLYPH, STATUS_LABEL, statusCounts, weakest, type FactStat } from "./logic";
 import { Trend } from "./Trend";
 import "./dash.css";
 
@@ -57,6 +57,7 @@ export function Dashboard({ backend, kids, thresholdMs }: { backend: Backend; ki
           ))}
         </div>
       )}
+      {data && <Summary data={data} thresholdMs={thresholdMs} busy={busy} />}
       <div className="dash-tabs" role="tablist" aria-label="Progress views">
         {TABS.map(([t, label]) => (
           <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>{label}</button>
@@ -82,6 +83,30 @@ export function Dashboard({ backend, kids, thresholdMs }: { backend: Backend; ki
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+/** The headline numbers, always visible above the views (so a phone sees them without opening tabs). */
+function Summary({ data, thresholdMs, busy }: { data: Data; thresholdMs: number; busy: boolean }) {
+  const practiced = data.trend.filter((d) => d.problems > 0);
+  const problems = data.trend.reduce((t, d) => t + d.problems, 0);
+  const minutes = Math.round(data.trend.reduce((t, d) => t + d.minutes, 0));
+  const fluent = statusCounts(data.facts, thresholdMs, data.merge).fluent;
+  const bag = backpackProgress(data.state.caught);
+  const wins = data.quests.reduce((t, q) => t + q.wins, 0);
+  const tile = (label: string, value: string) => (
+    <div className="tile"><div className="lbl">{label}</div><div className="val">{value}</div></div>
+  );
+  return (
+    <div className={"tiles summary" + (busy ? " busy" : "")} aria-label="At a glance">
+      {tile("Problems, last 30 days", problems.toLocaleString())}
+      {tile("Days practiced", String(practiced.length))}
+      {tile("Minutes", minutes.toLocaleString())}
+      {tile("Fluent facts", `${fluent} of ${data.merge ? 66 : 121}`)}
+      {tile("Animals found", `${bag.found} of ${bag.total}`)}
+      {tile("Quests won", String(wins))}
+      {tile("Longest run right", String(data.streak))}
     </div>
   );
 }

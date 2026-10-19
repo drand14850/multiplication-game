@@ -65,10 +65,21 @@ describe("site totals", () => {
     const [t] = await totals(OWNER);
     expect(t).toMatchObject({ grownups: 2, kids: 2, kid_accounts: 1, active_kids_7d: 1 });
     expect(Number(t.questions)).toBe(3);
+    expect(Number(t.questions_others)).toBe(3);        // all 3 are the other family's
     expect(Number(t.guests)).toBe(3);
     expect(Number(t.guest_questions)).toBe(67);
     expect(Number(t.questions_today)).toBe(2 + 67);
     expect(Number(t.questions_7d)).toBe(2 + 67);
+  });
+
+  it("the admin's own family's answers aren't counted as other families'", async () => {
+    const mine = (await asUser(db, OWNER, (tx) => tx.query<{ id: string }>("insert into children (name, avatar) values ('Mine', 'fox') returning id"))).rows[0].id;
+    await asUser(db, OWNER, (tx) => tx.query(
+      "insert into attempts (id, child_id, a, b, given_answer, correct, response_ms, mode, created_at) values ($1, $2, 6, 7, 42, true, 900, 'practice', now())",
+      [crypto.randomUUID(), mine]));
+    const [t] = await totals(OWNER);
+    expect(Number(t.questions)).toBe(4);
+    expect(Number(t.questions_others)).toBe(3);
   });
 
   it("other parents and kids' devices get nothing", async () => {

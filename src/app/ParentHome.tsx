@@ -57,19 +57,21 @@ const fmt = (n: number) => n.toLocaleString();
 
 /** Only the site admin's account ever gets totals, so only they see this card. */
 function SiteTotalsCard({ t }: { t: SiteTotals }) {
-  const tile = (label: string, value: number, sub?: string) => (
-    <div className="tile"><div className="lbl">{label}</div><div className="val">{fmt(value)}</div>{sub && <div className="lbl">{sub}</div>}</div>
+  const tile = (label: string, value: number, ...subs: string[]) => (
+    <div className="tile"><div className="lbl">{label}</div><div className="val">{fmt(value)}</div>
+      {subs.map((s) => <div key={s} className="lbl">{s}</div>)}</div>
   );
   return (
     <section className="card dash" aria-labelledby="totals-h">
       <h2 id="totals-h">Site totals</h2>
       <p className="sub">Only you see this. Every family, plus kids playing without an account (counted as browsers, nothing else recorded).</p>
-      <div className="tiles">
-        {tile("Problems answered", t.questions + t.guestQuestions, `${fmt(t.guestQuestions)} without an account`)}
+      <div className="tiles summary">
+        {tile("Problems answered", t.questions + t.guestQuestions,
+              `${fmt(t.guestQuestions)} without an account`, `${fmt(t.questionsOthers)} from other families`)}
         {tile("Today", t.questionsToday)}
         {tile("Last 7 days", t.questions7d)}
       </div>
-      <div className="tiles">
+      <div className="tiles summary">
         {tile("Grown-up accounts", t.grownups)}
         {tile("Kids on a family", t.kids, `${fmt(t.kidAccounts)} with a sign-in`)}
         {tile("Kids active this week", t.activeKids7d)}

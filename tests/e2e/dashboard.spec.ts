@@ -25,6 +25,17 @@ test.beforeAll(async () => {
   kid = (await db.query<{ id: string }>("select id from children where name = 'Demo Kid (seed)'")).rows[0].id;
   // a second child with no play yet, for the switcher
   await asUser(db, P, (tx) => tx.query("insert into children (name, avatar) values ('Ana', 'fox')"));
+  // this parent is the site admin, so the Site totals card shows too; plus another family
+  await db.query("insert into site_admins (user_id) values ($1)", [P]);
+  const other = "bbbbbbbb-0000-4000-8000-00000000000b";
+  await addParent(db, other, "UTC");
+  const oc = (await asUser(db, other, (tx) => tx.query<{ id: string }>("insert into children (name, avatar) values ('Other', 'cat') returning id"))).rows[0].id;
+  await asUser(db, other, async (tx) => {
+    for (let i = 0; i < 37; i++) {
+      await tx.query("insert into attempts (id, child_id, a, b, given_answer, correct, response_ms, mode, created_at) values ($1, $2, 3, 4, 12, true, 900, 'practice', now())", [crypto.randomUUID(), oc]);
+    }
+  });
+  await db.query("select guest_tick(true, 25)");
 });
 
 // PGlite is one connection: run the fake server's queries one at a time.
@@ -60,6 +71,7 @@ async function fakeSupabase(ctx: BrowserContext) {
       if (fn === "fact_stats") return reply(await sql("select * from fact_stats($1, $2)", [args.p_child, args.p_merge]));
       if (fn === "daily_trend") return reply(await sql("select day::text as day, problems, correct, median_ms, sessions, minutes from daily_trend($1, $2)", [args.p_child, args.p_days]));
       if (fn === "quest_stats") return reply(await sql("select * from quest_stats($1)", [args.p_child]));
+      if (fn === "site_totals") return reply(await sql("select * from site_totals()"));
       if (fn === "my_kid_logins") return reply(await sql("select * from my_kid_logins()"));
       if (fn === "longest_streak") return reply((await sql<{ n: number }>("select longest_streak($1) as n", [args.p_child]))[0].n);
     }
@@ -103,6 +115,10 @@ test("dashboard at phone width (390)", async ({ browser }) => {
   page.on("pageerror", (e) => errors.push(e.message));
   await openDashboard(page);
 
+  await page.locator("#totals-h").locator("..").screenshot({ path: OUT + "phone-0-site-totals.png", animations: "disabled" });
+  await expect(page.locator(".tile", { hasText: "Problems answered" })).toContainText("37 from other families");
+  await expect(page.locator(".tile", { hasText: "Problems answered" })).toContainText("25 without an account");
+  await expect(page.getByLabel("At a glance")).toBeVisible();          // at-a-glance numbers on a phone
   await shot(page, "phone-1-facts-status");
   await page.getByRole("button", { name: "Accuracy %" }).click();
   await shot(page, "phone-2-facts-accuracy");
@@ -141,13 +157,13 @@ test("dashboard at laptop width (1280), with numbers hand-checked against raw ro
   const total = await raw("select count(*)::int as n from collectibles where $1::uuid is not null");
   await expect(page.locator(".hero")).toContainText(`${found} of ${total}`);
   const wins = await raw("select count(*)::int as n from quest_runs where child_id = $1 and result = 'won'");
-  await expect(page.locator(".tile", { hasText: "Quests won" }).locator(".val")).toHaveText(String(wins));
+  await expect(page.locator("section[aria-label=Quests] .tile", { hasText: "Quests won" }).locator(".val")).toHaveText(String(wins));
   const inWindow = await raw(`select count(*)::int as n from attempts where child_id = $1
     and (created_at at time zone 'America/Los_Angeles')::date > (now() at time zone 'America/Los_Angeles')::date - 30`);
-  await expect(page.locator(".tile", { hasText: "Problems" }).locator(".val")).toHaveText(inWindow.toLocaleString("en-US"));
+  await expect(page.locator("section[aria-label=Trend] .tile", { hasText: "Problems" }).locator(".val")).toHaveText(inWindow.toLocaleString("en-US"));
   const fluent = await raw(`select count(*)::int as n from fact_stats($1) where recent_correct >= 4 and recent_correct::float / recent >= 0.8 and median_correct_ms < 3000`);
-  await expect(page.locator(".dash .sub").first()).toContainText(`${fluent} fluent`);
-  test.info().annotations.push({ type: "hand-check", description: `backpack ${found}/82, quest wins ${wins}, problems (30 days) ${inWindow}, fluent ${fluent}` });
-  console.log(`hand-check: backpack ${found}/82, quest wins ${wins}, problems in 30 days ${inWindow}, fluent facts ${fluent}`);
+  await expect(page.locator("section[aria-label=Facts] .sub").first()).toContainText(`${fluent} fluent`);
+  test.info().annotations.push({ type: "hand-check", description: `backpack ${found}/${total}, quest wins ${wins}, problems (30 days) ${inWindow}, fluent ${fluent}` });
+  console.log(`hand-check: backpack ${found}/${total}, quest wins ${wins}, problems in 30 days ${inWindow}, fluent facts ${fluent}`);
   await ctx.close();
 });

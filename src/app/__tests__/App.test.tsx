@@ -179,12 +179,13 @@ describe("grown-up area", () => {
     expect(screen.queryByRole("heading", { name: "Site totals" })).toBeNull();
     cleanup();
     await backend.signOut();
-    backend.totals = { grownups: 3, kids: 5, kidAccounts: 4, guests: 12, questions: 1500, guestQuestions: 234,
+    backend.totals = { grownups: 3, kids: 5, kidAccounts: 4, guests: 12, questions: 1500, questionsOthers: 610, guestQuestions: 234,
                        questionsToday: 40, questions7d: 600, activeKids7d: 2 };
     await signInParent(user);
     expect(screen.getByRole("heading", { name: "Site totals" })).toBeTruthy();
     expect(screen.getByText("1,734")).toBeTruthy();                 // 1,500 + 234
     expect(screen.getByText("234 without an account")).toBeTruthy();
+    expect(screen.getByText("610 from other families")).toBeTruthy();
   });
 
   it("shows the family code and can make a new one", async () => {

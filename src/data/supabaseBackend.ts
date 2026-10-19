@@ -236,7 +236,7 @@ export class SupabaseBackend implements Backend {
     const n = (k: string) => Number(r[k] ?? 0);
     return {
       grownups: n("grownups"), kids: n("kids"), kidAccounts: n("kid_accounts"), guests: n("guests"),
-      questions: n("questions"), guestQuestions: n("guest_questions"), questionsToday: n("questions_today"),
+      questions: n("questions"), questionsOthers: n("questions_others"), guestQuestions: n("guest_questions"), questionsToday: n("questions_today"),
       questions7d: n("questions_7d"), activeKids7d: n("active_kids_7d"),
     };
   }
