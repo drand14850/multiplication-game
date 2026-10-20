@@ -1,6 +1,7 @@
 import { ANIMALS, NAMES } from "../art/animals";
+import { EXTRA_RARES } from "../art/extraAnimals";
 import { ELEMENTS, elementArt, type ElementKey } from "../art/elements";
-import { isRare } from "./animalBag";
+import { animalId, isRare } from "./animalBag";
 
 export type Group = "animals" | "rare" | ElementKey;
 
@@ -12,7 +13,7 @@ export interface Collectible {
   svg: string;
 }
 
-/** Everything that can go in the backpack, in collection order (82 from the reference + 8 Tropical). */
+/** Everything that can go in the backpack, in collection order: the reference's 82, then 8 Tropical, then 5 new rares. */
 export const COLLECTIBLES: readonly Collectible[] = (() => {
   const out: Collectible[] = [];
   ANIMALS.forEach((art, i) => {
@@ -22,6 +23,10 @@ export const COLLECTIBLES: readonly Collectible[] = (() => {
     ELEMENTS[k].animals.forEach((base) => {
       out.push({ id: k + "-" + base.toLowerCase(), name: ELEMENTS[k].label + " " + base, label: base, svg: elementArt(base, k), group: k });
     });
+  });
+  // rare animals added after the port: appended, so every earlier id and position stays put
+  EXTRA_RARES.forEach((a, i) => {
+    out.push({ id: animalId(ANIMALS.length + i), name: a.name, label: a.name, svg: a.svg, group: "rare" });
   });
   return out;
 })();

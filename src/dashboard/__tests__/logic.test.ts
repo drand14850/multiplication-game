@@ -62,9 +62,10 @@ describe("needs work", () => {
 });
 
 describe("backpack", () => {
-  it("counts found out of all 90 and per group", () => {
+  it("counts found out of all 95 and per group", () => {
     const p = backpackProgress({ cat: 3, axolotl: 1, "fire-fox": 1, "water-whale": 0 });
-    expect(p).toMatchObject({ found: 3, total: 90 });
+    expect(p).toMatchObject({ found: 3, total: 95 });
+    expect(p.groups.find((g) => g.key === "rare")).toMatchObject({ found: 1, total: 10 });
     expect(p.groups.find((g) => g.key === "fire")).toMatchObject({ found: 1, total: 8 });
     expect(p.groups.find((g) => g.key === "water")).toMatchObject({ found: 0, total: 8 });
     expect(p.groups).toHaveLength(11);

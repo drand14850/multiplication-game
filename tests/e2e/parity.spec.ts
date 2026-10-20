@@ -88,7 +88,7 @@ async function play(page: Page, snap: (s: State) => Promise<void>): Promise<stri
   await page.waitForTimeout(500);
   for (let i = 0; i < 8; i++) await right(i === 7 ? 1100 : 800);
   await snap("pick-a-pet-reward");
-  await page.locator(".pickgrid button", { hasText: "Panda" }).click();
+  await page.locator(".pickgrid button", { hasText: /^Panda/ }).click();
   await page.waitForTimeout(1500);
 
   await page.locator("#bagBtn").click();

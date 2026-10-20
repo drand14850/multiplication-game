@@ -172,11 +172,12 @@ describe("quests", () => {
     expect(e.s.quest?.def.id).toBe("mystery");
   });
 
-  it("Pick-a-Pet offers exactly the 13 regular + 5 rare animals", () => {
+  it("Pick-a-Pet offers exactly the 13 regular + all 10 rare animals", () => {
     const opts = pickOptions({}, false);
-    expect(opts).toHaveLength(18);
-    expect(opts.filter((o) => o.rare)).toHaveLength(5);
-    expect(opts.map((o) => o.collectible.id)).toEqual(COLLECTIBLES.slice(0, 18).map((c) => c.id));
+    expect(opts).toHaveLength(23);
+    expect(opts.filter((o) => o.rare)).toHaveLength(10);
+    expect(opts.map((o) => o.collectible.id)).toEqual(
+      COLLECTIBLES.filter((c) => c.group === "animals" || c.group === "rare").map((c) => c.id));
   });
 
   it("after a rare pick, rares are unavailable until the next day", () => {
@@ -191,7 +192,7 @@ describe("quests", () => {
     const r = e.s.reward!;
     expect(r.kind === "pick" && r.rareUsed).toBe(true);
     expect(r.sub).toBe("Pick an animal. You already picked a rare one today.");
-    expect(pickOptions(e.s.caught, true).filter((o) => o.disabled).map((o) => o.status)).toEqual(Array(5).fill("wait"));
+    expect(pickOptions(e.s.caught, true).filter((o) => o.disabled).map((o) => o.status)).toEqual(Array(10).fill("wait"));
     e.claim("snake");                                // refused
     expect(e.s.phase).toBe("reward");
     e.claim("cat");

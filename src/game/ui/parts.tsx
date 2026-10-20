@@ -2,9 +2,8 @@
 // so game.css (copied verbatim) applies unchanged.
 
 import { useLayoutEffect, useRef, type CSSProperties } from "react";
-import { ANIMALS } from "../art/animals";
 import { EMBLEMS } from "../art/emblems";
-import { isRare } from "../logic/animalBag";
+import { animalSvg, isRare } from "../logic/animalBag";
 import { BY_ID, COLLECTIBLES } from "../logic/collectibles";
 import type { EngineState } from "../logic/engine";
 import { pickOptions } from "../logic/rewards";
@@ -20,7 +19,7 @@ function Svg({ inner, className }: { inner: string; className?: string }) {
 export function Background({ s }: { s: EngineState }) {
   const bg = s.background;
   const rare = bg.kind === "animal" && isRare(bg.index);
-  const inner = bg.kind === "animal" ? ANIMALS[bg.index] : EMBLEMS[bg.questId];
+  const inner = bg.kind === "animal" ? animalSvg(bg.index) : EMBLEMS[bg.questId];
   return (
     <div id="bg" aria-hidden="true" className={rare ? "rare" : ""}>
       <FadeInSvg key={bg.v} inner={inner} />
@@ -125,7 +124,7 @@ export function RewardView({ s, onClaim }: { s: EngineState; onClaim: (id: strin
   } else {
     body = (
       <div className="pickgrid">
-        {pickOptions(s.caught, r.rareUsed).map((o) => (
+        {pickOptions(s.caught, r.rareUsed, s.classicRares).map((o) => (
           <button key={o.collectible.id} type="button" data-pick={o.collectible.id}
                   className={o.rare ? "rare" : undefined} disabled={o.disabled}
                   onClick={() => { if (!o.disabled) onClaim(o.collectible.id); }}>

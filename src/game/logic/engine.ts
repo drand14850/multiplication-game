@@ -3,16 +3,15 @@
 // Effects (schedule a step, fly an animal, record an attempt…) for the UI and data
 // layer to carry out. Function names follow the reference so the two can be read side by side.
 
-import { isRare, nextAnimal } from "./animalBag";
-import { BY_ID, COLLECTIBLES, caughtCount, isElementGroup, type Caught } from "./collectibles";
+import { ALL_RARES, animalId, animalName, isRare, nextAnimal, REFERENCE_RARES } from "./animalBag";
+import { BY_ID, caughtCount, isElementGroup, type Caught } from "./collectibles";
 import { DELAY, MAX_DIGITS } from "./constants";
 import { factKey, newPicker, pickNextFact, type FactWeight, type PickerState } from "./facts";
 import { addTry, cleanRecent, factWeight, hardestFacts, type Recent } from "./mastery";
 import { questById, type QuestDef, type QuestId } from "./quests";
 import { cleanLoadedPile, onCorrect, onMiss, type ReviewPile } from "./reviewPile";
-import { rollElement, rollMystery } from "./rewards";
+import { pickOptions, rollElement, rollMystery } from "./rewards";
 import type { Rng } from "./rng";
-import { NAMES } from "../art/animals";
 
 export type Phase = "ask" | "wait" | "correcting" | "reward" | "flying";
 export type Panel = "none" | "quests" | "bag";
@@ -67,6 +66,8 @@ export interface EngineCtx {
   newId: () => string;   // uuid for quest runs
   /** Adaptive picking: lean toward the facts this kid doesn't know yet. Absent: the reference's uniform picking. */
   adaptive?: { fluencyMs: number };
+  /** Only the reference's 5 rare animals (for the parity check). Default: every rare animal. */
+  classicRares?: boolean;
 }
 
 export interface EngineState extends Saved {
@@ -91,6 +92,8 @@ export interface EngineState extends Saved {
   panel: Panel;
   bagShown: number;       // the bag button count updates when the bag pops
   bagPops: number;
+  /** only the reference's 5 rare animals (parity check) */
+  classicRares: boolean;
 }
 
 export class GameEngine {
@@ -133,6 +136,7 @@ export class GameEngine {
       panel: "none",
       bagShown: caughtCount(caught),
       bagPops: 0,
+      classicRares: !!ctx.classicRares,
     };
     this.nextQuestion();
   }
@@ -184,7 +188,7 @@ export class GameEngine {
   private swapAnimal(): void {
     const s = this.s;
     if (s.quest) { s.showing = -1; return; }     // the quest emblem stays put
-    s.showing = nextAnimal(s.bag, this.ctx.rng);
+    s.showing = nextAnimal(s.bag, this.ctx.rng, this.ctx.classicRares ? REFERENCE_RARES : ALL_RARES);
     s.background = { kind: "animal", index: s.showing, v: ++this.bgV };
   }
 
@@ -240,13 +244,13 @@ export class GameEngine {
       }
 
       const rare = isRare(s.showing);
-      const isNew = this.collect(COLLECTIBLES[s.showing].id, "bg", "practice", null);
+      const isNew = this.collect(animalId(s.showing), "bg", "practice", null);
       s.entry = "right";
       s.note = {
         text: rare
-          ? "You caught the " + NAMES[s.showing].toLowerCase() + "!"
+          ? "You caught the " + animalName(s.showing).toLowerCase() + "!"
           : isNew
-            ? NAMES[s.showing] + " jumped in your backpack!"
+            ? animalName(s.showing) + " jumped in your backpack!"
             : (s.streak >= 5 ? s.streak + " in a row!" : "Yes!"),
         win: true,
       };
@@ -405,7 +409,7 @@ export class GameEngine {
       this.collect(id, "prize", null, null);         // already recorded at win
     } else {
       const c = BY_ID.get(id);
-      if (!c || (c.group !== "animals" && c.group !== "rare")) return;
+      if (!c || !pickOptions(s.caught, false, s.classicRares).some((o) => o.collectible.id === id)) return;
       const rare = c.group === "rare";
       if (rare && s.reward.rareUsed) return;
       if (rare) s.rarePickDay = this.ctx.today();

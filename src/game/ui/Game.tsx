@@ -11,10 +11,12 @@ import { BackpackPanel, QuestsPanel } from "./panels";
  * adaptive (default on): problems lean toward facts this kid doesn't know yet, using
  * fluencyMs as the "knows it" threshold. Off for the parity check against the reference.
  */
-export function Game({ store, timeZone, player, adaptive = true, fluencyMs = 3000 }: {
+export function Game({ store, timeZone, player, adaptive = true, fluencyMs = 3000, classicRares = false }: {
   store: GameStore; timeZone?: string; player?: Player; adaptive?: boolean; fluencyMs?: number;
+  /** only the reference's 5 rare animals (for the parity check) */
+  classicRares?: boolean;
 }) {
-  const [driver] = useState(() => new GameDriver(store, timeZone, adaptive ? { fluencyMs } : null));
+  const [driver] = useState(() => new GameDriver(store, timeZone, adaptive ? { fluencyMs } : null, classicRares));
   useSyncExternalStore(driver.subscribe, driver.getVersion);
   useEffect(() => driver.attach(), [driver]);
   const bagRef = driver.setBagButton;

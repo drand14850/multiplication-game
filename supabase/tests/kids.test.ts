@@ -269,6 +269,21 @@ describe("the Tropical quest (added later)", () => {
   });
 });
 
+describe("the new rare animals (added later)", () => {
+  it("can be caught in practice and count toward the once-a-day rare pick", async () => {
+    const dev = await device();
+    const kid = (await signUp(dev, codeA, "rare_finder", "abcd")).child_id!;
+    const t = new Date().toISOString();
+    await asUser(db, dev, (tx) => tx.query(
+      "insert into catches (id, child_id, collectible_id, source, created_at) values ($1, $2, 'red-panda', 'practice', $3)", [uuid(), kid, t]));
+    await asUser(db, dev, (tx) => tx.query(
+      "insert into catches (id, child_id, collectible_id, source, created_at) values ($1, $2, 'narwhal', 'pick', $3)", [uuid(), kid, t]));
+    expect(await failure(asUser(db, dev, (tx) => tx.query(
+      "insert into catches (id, child_id, collectible_id, source, created_at) values ($1, $2, 'peacock', 'pick', $3)", [uuid(), kid, t]))))
+      .toMatch(/rare_pick_already_used_today/);
+  });
+});
+
 describe("progress carried over from playing without an account", () => {
   it("'import' catches skip the once-a-day rules", async () => {
     const dev = await device();

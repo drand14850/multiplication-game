@@ -42,12 +42,13 @@ describe("port matches the reference file", () => {
     });
   });
 
-  it("only adds the Tropical animals after them", () => {
+  it("only adds the Tropical animals and then the new rares after them", () => {
     const added = COLLECTIBLES.slice(82);
-    expect(added).toHaveLength(8);
-    added.forEach((c) => expect(ADDED_GROUPS).toContain(c.group));
     expect(added.map((c) => c.id)).toEqual(["tropical-frog", "tropical-turtle", "tropical-chameleon", "tropical-snake",
-      "tropical-lizard", "tropical-elephant", "tropical-whale", "tropical-axolotl"]);
+      "tropical-lizard", "tropical-elephant", "tropical-whale", "tropical-axolotl",
+      "narwhal", "flamingo", "red-panda", "sloth", "peacock"]);
+    added.slice(0, 8).forEach((c) => expect(ADDED_GROUPS).toContain(c.group));
+    added.slice(8).forEach((c) => expect(c.group).toBe("rare"));
   });
 
   it("uses stable lowercase ids like fire-fox", () => {

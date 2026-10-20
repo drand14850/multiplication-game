@@ -1,6 +1,11 @@
 import type { ElementKey } from "../art/elements";
+import { COMMON } from "../art/animals";
+import { REFERENCE_RARES } from "./animalBag";
 import { COLLECTIBLES, isElementGroup, type Caught, type Collectible } from "./collectibles";
 import type { Rng } from "./rng";
+
+/** The reference's Pick-a-Pet grid: 13 regulars + its 5 rares. */
+const REFERENCE_PICKS = COMMON + REFERENCE_RARES;
 
 /** Random animal of the quest's type, favoring ones he doesn't have yet. */
 export function rollElement(key: ElementKey, caught: Caught, rng: Rng): Collectible {
@@ -28,12 +33,17 @@ export interface PickOption {
   status: "new" | "have" | "wait";
 }
 
-/** Pick-a-Pet: the 13 regular + 5 rare. Rares are disabled ("tomorrow") once one was picked today. */
-export function pickOptions(caught: Caught, rareUsedToday: boolean): PickOption[] {
-  return COLLECTIBLES.filter((c) => c.group === "animals" || c.group === "rare").map((c) => {
-    const rare = c.group === "rare";
-    const have = caught[c.id] || 0;
-    const disabled = rare && rareUsedToday;
-    return { collectible: c, rare, have, disabled, status: disabled ? "wait" : have ? "have" : "new" };
-  });
+/**
+ * Pick-a-Pet: the 13 regulars and every rare (or, with classicRares, only the reference's 5).
+ * Rares are disabled ("tomorrow") once one was picked today.
+ */
+export function pickOptions(caught: Caught, rareUsedToday: boolean, classicRares = false): PickOption[] {
+  return COLLECTIBLES.filter((c) => c.group === "animals" || c.group === "rare")
+    .slice(0, classicRares ? REFERENCE_PICKS : undefined)
+    .map((c) => {
+      const rare = c.group === "rare";
+      const have = caught[c.id] || 0;
+      const disabled = rare && rareUsedToday;
+      return { collectible: c, rare, have, disabled, status: disabled ? "wait" : have ? "have" : "new" };
+    });
 }

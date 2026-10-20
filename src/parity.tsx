@@ -9,5 +9,5 @@ import "./game/ui/game.css";
 import { LocalStore } from "./data/gameStore";
 import { Game } from "./game/ui/Game";
 
-// adaptive off: the parity check compares against the reference's uniform picking
-createRoot(document.getElementById("root")!).render(<Game store={new LocalStore()} adaptive={false} />);
+// adaptive off and the original 5 rares: the parity check compares against the reference
+createRoot(document.getElementById("root")!).render(<Game store={new LocalStore()} adaptive={false} classicRares />);
