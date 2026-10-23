@@ -4,10 +4,10 @@ import type { CSSProperties } from "react";
 import { ELEMENTS } from "../art/elements";
 import { EMBLEMS } from "../art/emblems";
 import { COLLECTIBLES, GROUPS, caughtCount, isElementGroup, type Caught } from "../logic/collectibles";
-import { QUESTS, type QuestId } from "../logic/quests";
+import { QUESTS, questLen, type QuestId } from "../logic/quests";
 
-export function QuestsPanel({ open, caught, mysteryUsed, onStart }: {
-  open: boolean; caught: Caught; mysteryUsed: boolean; onStart: (id: QuestId) => void;
+export function QuestsPanel({ open, caught, mysteryUsed, onStart, classic = false }: {
+  open: boolean; caught: Caught; mysteryUsed: boolean; onStart: (id: QuestId) => void; classic?: boolean;
 }) {
   return (
     <div className={"quests" + (open ? "" : " hidden")} id="quests">
@@ -29,7 +29,7 @@ export function QuestsPanel({ open, caught, mysteryUsed, onStart }: {
                     onClick={() => { if (!used) onStart(q.id); }}>
               <svg viewBox="0 0 200 200" aria-hidden="true" dangerouslySetInnerHTML={{ __html: EMBLEMS[q.id] }} />
               <span className="mid"><span className="qt">{q.name}</span><span className="qs">{sub}</span></span>
-              <span className="len"><b>{q.len}</b><small>{q.len === 1 ? "problem" : "in a row"}</small></span>
+              <span className="len"><b>{questLen(q, classic)}</b><small>{questLen(q, classic) === 1 ? "problem" : "in a row"}</small></span>
             </button>
           );
         })}

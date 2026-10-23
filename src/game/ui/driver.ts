@@ -20,10 +20,10 @@ export class GameDriver {
   private seenSeq = -1;
 
   /** adaptive: lean toward weak facts, with this fluency threshold; null = the reference's uniform picking */
-  constructor(store: GameStore, private timeZone?: string, adaptive: { fluencyMs: number } | null = null, classicRares = false) {
+  constructor(store: GameStore, private timeZone?: string, adaptive: { fluencyMs: number } | null = null, classic = false) {
     this.store = store;
     this.engine = new GameEngine(
-      { rng: defaultRng, today: () => this.today(), newId: () => crypto.randomUUID(), adaptive: adaptive ?? undefined, classicRares },
+      { rng: defaultRng, today: () => this.today(), newId: () => crypto.randomUUID(), adaptive: adaptive ?? undefined, classic },
       store.load(),
     );
     this.engine.takeEffects();

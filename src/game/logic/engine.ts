@@ -8,7 +8,7 @@ import { BY_ID, caughtCount, isElementGroup, type Caught } from "./collectibles"
 import { DELAY, MAX_DIGITS } from "./constants";
 import { factKey, newPicker, pickNextFact, type FactWeight, type PickerState } from "./facts";
 import { addTry, cleanRecent, factWeight, hardestFacts, type Recent } from "./mastery";
-import { questById, type QuestDef, type QuestId } from "./quests";
+import { questById, questLen, type QuestDef, type QuestId } from "./quests";
 import { cleanLoadedPile, onCorrect, onMiss, type ReviewPile } from "./reviewPile";
 import { pickOptions, rollElement, rollMystery } from "./rewards";
 import type { Rng } from "./rng";
@@ -34,6 +34,7 @@ export type Background =
 
 export interface QuestRun {
   def: QuestDef;
+  len: number;             // problems in a row to win this run
   done: number;
   runId: string;
   missAt: number | null;
@@ -66,8 +67,8 @@ export interface EngineCtx {
   newId: () => string;   // uuid for quest runs
   /** Adaptive picking: lean toward the facts this kid doesn't know yet. Absent: the reference's uniform picking. */
   adaptive?: { fluencyMs: number };
-  /** Only the reference's 5 rare animals (for the parity check). Default: every rare animal. */
-  classicRares?: boolean;
+  /** The reference's own rules for the parity check: its 5 rare animals and its quest lengths. */
+  classic?: boolean;
 }
 
 export interface EngineState extends Saved {
@@ -92,8 +93,8 @@ export interface EngineState extends Saved {
   panel: Panel;
   bagShown: number;       // the bag button count updates when the bag pops
   bagPops: number;
-  /** only the reference's 5 rare animals (parity check) */
-  classicRares: boolean;
+  /** the reference's rare animals and quest lengths (parity check) */
+  classic: boolean;
 }
 
 export class GameEngine {
@@ -136,7 +137,7 @@ export class GameEngine {
       panel: "none",
       bagShown: caughtCount(caught),
       bagPops: 0,
-      classicRares: !!ctx.classicRares,
+      classic: !!ctx.classic,
     };
     this.nextQuestion();
   }
@@ -188,7 +189,7 @@ export class GameEngine {
   private swapAnimal(): void {
     const s = this.s;
     if (s.quest) { s.showing = -1; return; }     // the quest emblem stays put
-    s.showing = nextAnimal(s.bag, this.ctx.rng, this.ctx.classicRares ? REFERENCE_RARES : ALL_RARES);
+    s.showing = nextAnimal(s.bag, this.ctx.rng, this.ctx.classic ? REFERENCE_RARES : ALL_RARES);
     s.background = { kind: "animal", index: s.showing, v: ++this.bgV };
   }
 
@@ -233,7 +234,7 @@ export class GameEngine {
       if (s.quest) {
         s.quest.done++;
         this.emit({ type: "questProgress", runId: s.quest.runId, reached: s.quest.done });
-        const left = s.quest.def.len - s.quest.done;
+        const left = s.quest.len - s.quest.done;
         s.entry = "right";
         s.note = { text: left === 0 ? "Quest beaten!" : left === 1 ? "One more!" : left + " to go", win: true };
         this.save();
@@ -323,8 +324,8 @@ export class GameEngine {
     const def = questById(id);
     if (def.id === "mystery" && s.mysteryDay === this.ctx.today()) return;   // the card is disabled
     if (def.id === "mystery") this.mysteryRound = retry ? this.mysteryRound + 1 : 0;
-    s.quest = { def, done: 0, runId: this.ctx.newId(), missAt: null, ended: false };
-    this.emit({ type: "questStart", runId: s.quest.runId, questId: def.id, length: def.len });
+    s.quest = { def, len: questLen(def, !!this.ctx.classic), done: 0, runId: this.ctx.newId(), missAt: null, ended: false };
+    this.emit({ type: "questStart", runId: s.quest.runId, questId: def.id, length: s.quest.len });
     s.panel = "none";
     s.background = { kind: "emblem", questId: def.id, v: ++this.bgV };
     this.resetScreen();
@@ -364,7 +365,7 @@ export class GameEngine {
   winQuest(): void {
     const s = this.s;
     const q = s.quest;
-    if (!q || q.done < q.def.len) return;     // quit during the 700 ms before the win screen
+    if (!q || q.done < q.len) return;         // quit during the 700 ms before the win screen
     const def = q.def;
     const today = this.ctx.today();
 
@@ -409,7 +410,7 @@ export class GameEngine {
       this.collect(id, "prize", null, null);         // already recorded at win
     } else {
       const c = BY_ID.get(id);
-      if (!c || !pickOptions(s.caught, false, s.classicRares).some((o) => o.collectible.id === id)) return;
+      if (!c || !pickOptions(s.caught, false, s.classic).some((o) => o.collectible.id === id)) return;
       const rare = c.group === "rare";
       if (rare && s.reward.rareUsed) return;
       if (rare) s.rarePickDay = this.ctx.today();

@@ -65,7 +65,9 @@ describe("port matches the reference file", () => {
     const { tropical, ...emblems } = EMBLEMS;
     expect(emblems).toEqual(ref.EMBLEMS);
     expect(tropical).toBeTruthy();
-    expect(QUESTS.filter((q) => !ADDED_GROUPS.includes(q.id))).toEqual(ref.QUESTS);
+    // same quests; lengths were shortened later, and refLen keeps the reference's
+    expect(QUESTS.filter((q) => !ADDED_GROUPS.includes(q.id))
+      .map(({ id, name, refLen, color, blurb }) => ({ id, name, len: refLen, color, blurb }))).toEqual(ref.QUESTS);
     expect(GROUPS.filter((g) => !ADDED_GROUPS.includes(g.key))).toEqual(ref.GROUPS);
     // quests stay in length order, and Diamond is still the longest
     expect(QUESTS.map((q) => q.len)).toEqual([...QUESTS.map((q) => q.len)].sort((x, y) => x - y));

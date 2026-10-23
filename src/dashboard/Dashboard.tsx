@@ -159,7 +159,7 @@ function Quests({ stats, streak }: { stats: QuestStat[]; streak: number }) {
         <tbody>
           {QUESTS.map((q) => {
             const s = by.get(q.id);
-            const best = s?.best ?? 0;
+            const best = Math.min(s?.best ?? 0, q.len);   // runs from before quests were shortened can be longer
             return (
               <tr key={q.id}>
                 <td>{q.name}</td>

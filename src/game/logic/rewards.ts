@@ -34,12 +34,12 @@ export interface PickOption {
 }
 
 /**
- * Pick-a-Pet: the 13 regulars and every rare (or, with classicRares, only the reference's 5).
+ * Pick-a-Pet: the 13 regulars and every rare (or, with classic, only the reference's 5).
  * Rares are disabled ("tomorrow") once one was picked today.
  */
-export function pickOptions(caught: Caught, rareUsedToday: boolean, classicRares = false): PickOption[] {
+export function pickOptions(caught: Caught, rareUsedToday: boolean, classic = false): PickOption[] {
   return COLLECTIBLES.filter((c) => c.group === "animals" || c.group === "rare")
-    .slice(0, classicRares ? REFERENCE_PICKS : undefined)
+    .slice(0, classic ? REFERENCE_PICKS : undefined)
     .map((c) => {
       const rare = c.group === "rare";
       const have = caught[c.id] || 0;

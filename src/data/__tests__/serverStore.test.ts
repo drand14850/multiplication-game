@@ -104,7 +104,7 @@ describe("ServerStore", () => {
     e.takeEffects();
     e.startQuest("water");
     e.takeEffects().forEach((f) => store.record(f));
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {                    // Water is 5 in a row
       for (const d of String(e.s.current.answer)) e.type(d);
       e.check(900);
       const fx = e.takeEffects();
@@ -114,7 +114,7 @@ describe("ServerStore", () => {
     }
     await q.flush();
     const run = backend.rows.quest_runs.get("run-1")!;
-    expect(run).toMatchObject({ child_id: "c1", quest_id: "water", length: 10, reached: 10, result: "won" });
+    expect(run).toMatchObject({ child_id: "c1", quest_id: "water", length: 5, reached: 5, result: "won" });
     expect(String(run.reward_id)).toMatch(/^water-/);
     expect([...backend.rows.attempts.values()].every((a) => a.quest_run_id === "run-1" && a.mode === "quest")).toBe(true);
     expect([...backend.rows.catches.values()]).toEqual([expect.objectContaining({ source: "quest", collectible_id: run.reward_id })]);

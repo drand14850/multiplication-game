@@ -80,7 +80,7 @@ export function Strip({ s, onQuests, onBag, bagRef, player }: {
 export function QuestBar({ s, onQuit }: { s: EngineState; onQuit: () => void }) {
   const q = s.quest;
   if (!q) return <div className="questbar hidden" id="questbar"></div>;
-  const len = q.def.len;
+  const len = q.len;
   const quitHidden = s.phase === "reward" || s.phase === "flying";
   return (
     <div className="questbar" id="questbar" style={qc(q.def.color)}>
@@ -124,7 +124,7 @@ export function RewardView({ s, onClaim }: { s: EngineState; onClaim: (id: strin
   } else {
     body = (
       <div className="pickgrid">
-        {pickOptions(s.caught, r.rareUsed, s.classicRares).map((o) => (
+        {pickOptions(s.caught, r.rareUsed, s.classic).map((o) => (
           <button key={o.collectible.id} type="button" data-pick={o.collectible.id}
                   className={o.rare ? "rare" : undefined} disabled={o.disabled}
                   onClick={() => { if (!o.disabled) onClaim(o.collectible.id); }}>

@@ -94,8 +94,9 @@ describe("quests", () => {
     expect(e.s.phase).toBe("reward");
     const practiceCatches = fx.filter((f) => f.type === "catch" && f.source === "practice");
     expect(practiceCatches).toHaveLength(0);
-    expect(fx.filter((f) => f.type === "attempt")).toHaveLength(10);
-    expect(fx).toContainEqual(expect.objectContaining({ type: "questEnd", result: "won", reached: 10 }));
+    expect(fx.filter((f) => f.type === "attempt")).toHaveLength(5);            // Water is 5 in a row now
+    expect(fx).toContainEqual(expect.objectContaining({ type: "questStart", length: 5 }));
+    expect(fx).toContainEqual(expect.objectContaining({ type: "questEnd", result: "won", reached: 5 }));
     expect(e.s.showing).toBe(-1);
   });
 
@@ -207,7 +208,22 @@ describe("quests", () => {
 
   it("Diamond is the longest quest", () => {
     const max = Math.max(...QUESTS.map((q) => q.len));
+    QUESTS.filter((q) => q.id !== "mystery").forEach((q) => {
+      expect(q.len).toBeGreaterThanOrEqual(5);                               // 5 to 10 in a row
+      expect(q.len).toBeLessThanOrEqual(10);
+    });
     expect(QUESTS.find((q) => q.id === "diamond")!.len).toBe(max);
+  });
+});
+
+describe("classic mode (parity check)", () => {
+  it("uses the reference's quest lengths", () => {
+    let n = 0;
+    const e = new GameEngine({ rng: seededRng(1), today: () => "2026-10-23", newId: () => "run-" + ++n, classic: true });
+    e.takeEffects();
+    e.startQuest("water");
+    expect(e.s.quest!.len).toBe(10);
+    expect(e.takeEffects()).toContainEqual(expect.objectContaining({ type: "questStart", length: 10 }));
   });
 });
 

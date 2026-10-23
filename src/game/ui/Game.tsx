@@ -11,12 +11,12 @@ import { BackpackPanel, QuestsPanel } from "./panels";
  * adaptive (default on): problems lean toward facts this kid doesn't know yet, using
  * fluencyMs as the "knows it" threshold. Off for the parity check against the reference.
  */
-export function Game({ store, timeZone, player, adaptive = true, fluencyMs = 3000, classicRares = false }: {
+export function Game({ store, timeZone, player, adaptive = true, fluencyMs = 3000, classic = false }: {
   store: GameStore; timeZone?: string; player?: Player; adaptive?: boolean; fluencyMs?: number;
   /** only the reference's 5 rare animals (for the parity check) */
-  classicRares?: boolean;
+  classic?: boolean;
 }) {
-  const [driver] = useState(() => new GameDriver(store, timeZone, adaptive ? { fluencyMs } : null, classicRares));
+  const [driver] = useState(() => new GameDriver(store, timeZone, adaptive ? { fluencyMs } : null, classic));
   useSyncExternalStore(driver.subscribe, driver.getVersion);
   useEffect(() => driver.attach(), [driver]);
   const bagRef = driver.setBagButton;
@@ -42,7 +42,7 @@ export function Game({ store, timeZone, player, adaptive = true, fluencyMs = 300
                 onGotIt={() => run((e) => e.gotIt())}
                 onTryAgain={() => run((e) => e.tryAgain())}
                 onStop={() => run((e) => e.stop())} />
-        <QuestsPanel open={s.panel === "quests"} caught={s.caught} mysteryUsed={s.mysteryDay === driver.today()}
+        <QuestsPanel open={s.panel === "quests"} caught={s.caught} mysteryUsed={s.mysteryDay === driver.today()} classic={s.classic}
                      onStart={(id: QuestId) => run((e) => e.startQuest(id))} />
         <BackpackPanel open={s.panel === "bag"} caught={s.caught} />
       </div>
