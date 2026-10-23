@@ -1,9 +1,13 @@
 import { ANIMALS, NAMES } from "../art/animals";
 import { EXTRA_RARES } from "../art/extraAnimals";
+import { MYTH_CREATURES } from "../art/mythAnimals";
 import { ELEMENTS, elementArt, type ElementKey } from "../art/elements";
 import { animalId, isRare } from "./animalBag";
 
-export type Group = "animals" | "rare" | ElementKey;
+export type Group = "animals" | "rare" | ElementKey | "myth";
+
+/** Accent color of the Greek Myths quest and its backpack section. */
+export const MYTH_COLOR = "#7B9CFF";
 
 export interface Collectible {
   id: string;     // stable: "cat", "axolotl", "fire-fox"
@@ -13,7 +17,7 @@ export interface Collectible {
   svg: string;
 }
 
-/** Everything that can go in the backpack, in collection order: the reference's 82, then 8 Tropical, then 5 new rares. */
+/** Everything in the backpack, in collection order: the reference's 82, then 8 Tropical, 5 new rares, 8 Greek myth creatures. */
 export const COLLECTIBLES: readonly Collectible[] = (() => {
   const out: Collectible[] = [];
   ANIMALS.forEach((art, i) => {
@@ -27,6 +31,10 @@ export const COLLECTIBLES: readonly Collectible[] = (() => {
   // rare animals added after the port: appended, so every earlier id and position stays put
   EXTRA_RARES.forEach((a, i) => {
     out.push({ id: animalId(ANIMALS.length + i), name: a.name, label: a.name, svg: a.svg, group: "rare" });
+  });
+  // Greek myth creatures (2026-10-23): appended last
+  MYTH_CREATURES.forEach((a) => {
+    out.push({ id: "myth-" + a.name.toLowerCase(), name: a.name, label: a.name, svg: a.svg, group: "myth" });
   });
   return out;
 })();
@@ -45,10 +53,21 @@ export const GROUPS: readonly { key: Group; label: string }[] = [
   { key: "golden",  label: "Golden animals" },
   { key: "diamond", label: "Diamond animals" },
   { key: "tropical", label: "Tropical animals" },   // added after the port
+  { key: "myth",     label: "Greek Myth creatures" },   // added after the port
 ];
 
 export function isElementGroup(g: Group | string): g is ElementKey {
   return g in ELEMENTS;
+}
+
+/** Groups won from a quest: the element groups and the Greek myth creatures. */
+export function isQuestGroup(g: Group | string): g is ElementKey | "myth" {
+  return isElementGroup(g) || g === "myth";
+}
+
+/** A quest group's accent color (for headings and slot rings). */
+export function groupColor(g: Group | string): string | null {
+  return isElementGroup(g) ? ELEMENTS[g].color : g === "myth" ? MYTH_COLOR : null;
 }
 
 /** collectible id -> times caught */

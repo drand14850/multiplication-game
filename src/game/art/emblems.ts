@@ -1,5 +1,7 @@
 // Quest emblems copied verbatim from reference/times-tables.html (L771–803).
 
+import { MYTH_EMBLEM } from "./mythAnimals";
+
 const snowArm = '<path d="M82 36 L100 54 L118 36 M82 164 L100 146 L118 164"/>';
 export const EMBLEMS: Record<string, string> = {
   mystery: '<path d="M100 64 Q68 18 50 38 Q42 60 100 64 Q132 18 150 38 Q158 60 100 64 Z" fill="#FFC145"/>' +
@@ -30,6 +32,8 @@ export const EMBLEMS: Record<string, string> = {
   golden: '<path d="M30 150 L40 60 L75 100 L100 40 L125 100 L160 60 L170 150 Z" fill="#FFCC33"/>' +
           '<rect x="30" y="140" width="140" height="26" rx="6" fill="#E8B020"/>' +
           '<g fill="#FF4F7B"><circle cx="40" cy="58" r="11"/><circle cx="100" cy="38" r="11"/><circle cx="160" cy="58" r="11"/></g>',
+  // added after the port: a Greek temple
+  myth: MYTH_EMBLEM,
   // added after the port: a palm tree on a little island
   tropical: '<ellipse cx="100" cy="172" rx="72" ry="16" fill="#F9C74F"/>' +
             '<path d="M104 170 Q94 122 112 72" fill="none" stroke="#9C6B3C" stroke-width="12" stroke-linecap="round"/>' +

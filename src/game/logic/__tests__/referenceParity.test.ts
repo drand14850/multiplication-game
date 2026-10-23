@@ -29,7 +29,7 @@ const ref = loadReference();
 describe("port matches the reference file", () => {
   // Additions since the port (Tropical) only ever come after the reference's items, so
   // existing backpacks keep every animal they had.
-  const ADDED_GROUPS = ["tropical"];
+  const ADDED_GROUPS = ["tropical", "myth"];
 
   it("keeps all 82 reference collectibles first, in order, with identical art", () => {
     expect(ref.COLLECTIBLES).toHaveLength(82);
@@ -42,13 +42,15 @@ describe("port matches the reference file", () => {
     });
   });
 
-  it("only adds the Tropical animals and then the new rares after them", () => {
+  it("only adds Tropical, then the new rares, then the Greek myth creatures after them", () => {
     const added = COLLECTIBLES.slice(82);
     expect(added.map((c) => c.id)).toEqual(["tropical-frog", "tropical-turtle", "tropical-chameleon", "tropical-snake",
       "tropical-lizard", "tropical-elephant", "tropical-whale", "tropical-axolotl",
-      "narwhal", "flamingo", "red-panda", "sloth", "peacock"]);
-    added.slice(0, 8).forEach((c) => expect(ADDED_GROUPS).toContain(c.group));
-    added.slice(8).forEach((c) => expect(c.group).toBe("rare"));
+      "narwhal", "flamingo", "red-panda", "sloth", "peacock",
+      "myth-hydra", "myth-pegasus", "myth-cerberus", "myth-minotaur", "myth-griffin", "myth-phoenix", "myth-centaur", "myth-medusa"]);
+    added.slice(0, 8).forEach((c) => expect(c.group).toBe("tropical"));
+    added.slice(8, 13).forEach((c) => expect(c.group).toBe("rare"));
+    added.slice(13).forEach((c) => expect(c.group).toBe("myth"));
   });
 
   it("uses stable lowercase ids like fire-fox", () => {
@@ -62,9 +64,10 @@ describe("port matches the reference file", () => {
   });
 
   it("keeps the reference's emblems, quests and backpack groups, plus Tropical", () => {
-    const { tropical, ...emblems } = EMBLEMS;
+    const { tropical, myth, ...emblems } = EMBLEMS;
     expect(emblems).toEqual(ref.EMBLEMS);
     expect(tropical).toBeTruthy();
+    expect(myth).toBeTruthy();
     // same quests; lengths were shortened later, and refLen keeps the reference's
     expect(QUESTS.filter((q) => !ADDED_GROUPS.includes(q.id))
       .map(({ id, name, refLen, color, blurb }) => ({ id, name, len: refLen, color, blurb }))).toEqual(ref.QUESTS);

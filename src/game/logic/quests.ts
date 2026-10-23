@@ -1,4 +1,4 @@
-export type QuestId = "mystery" | "pick" | "water" | "earth" | "fire" | "ice" | "emerald" | "ruby" | "golden" | "diamond" | "tropical";
+export type QuestId = "mystery" | "pick" | "water" | "earth" | "fire" | "ice" | "emerald" | "ruby" | "golden" | "diamond" | "tropical" | "myth";
 
 /** len: problems in a row to win. refLen: the reference game's length (parity check only). */
 export interface QuestDef { id: QuestId; name: string; len: number; refLen: number; color: string; blurb: string }
@@ -16,6 +16,7 @@ export const QUESTS: readonly QuestDef[] = [
   { id: "emerald",  name: "Emerald Quest",    len: 8,  refLen: 19, color: "#3DD68C", blurb: "Win an emerald animal" },
   { id: "ruby",     name: "Ruby Quest",       len: 8,  refLen: 21, color: "#FF4F7B", blurb: "Win a ruby animal" },
   { id: "golden",   name: "Golden Quest",     len: 9,  refLen: 23, color: "#FFCC33", blurb: "Win a golden animal" },
+  { id: "myth",     name: "Greek Myths Quest", len: 9, refLen: 9,  color: "#7B9CFF", blurb: "Win a Greek myth creature" },   // added after the port
   { id: "diamond",  name: "Diamond Quest",    len: 10, refLen: 25, color: "#A8F0F5", blurb: "Win a diamond animal" },
 ];
 

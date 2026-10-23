@@ -1,9 +1,8 @@
 // The Quests and Backpack panels (reference renderQuests() / renderCollection()).
 
 import type { CSSProperties } from "react";
-import { ELEMENTS } from "../art/elements";
 import { EMBLEMS } from "../art/emblems";
-import { COLLECTIBLES, GROUPS, caughtCount, isElementGroup, type Caught } from "../logic/collectibles";
+import { COLLECTIBLES, GROUPS, caughtCount, groupColor, isQuestGroup, type Caught } from "../logic/collectibles";
 import { QUESTS, questLen, type QuestId } from "../logic/quests";
 
 export function QuestsPanel({ open, caught, mysteryUsed, onStart, classic = false }: {
@@ -16,7 +15,7 @@ export function QuestsPanel({ open, caught, mysteryUsed, onStart, classic = fals
       <div id="questList">
         {open && QUESTS.map((q) => {
           let sub = q.blurb;
-          if (isElementGroup(q.id)) {
+          if (isQuestGroup(q.id)) {
             let total = 0, have = 0;
             COLLECTIBLES.forEach((c) => { if (c.group === q.id) { total++; if (caught[c.id]) have++; } });
             sub += " (" + have + " of " + total + " found)";
@@ -49,7 +48,8 @@ export function BackpackPanel({ open, caught }: { open: boolean; caught: Caught 
       <p className={"empty-note" + (found > 0 ? " hidden" : "")} id="collEmpty">Get an answer right and the animal hops in here.</p>
       <div className="slots" id="slots">
         {open && GROUPS.map((g) => {
-          const E = isElementGroup(g.key) ? ELEMENTS[g.key] : null;
+          const color = groupColor(g.key);
+          const E = color ? { color } : null;
           return [
             <h3 key={g.key + "-h"} className="grp" style={E ? { color: E.color } : undefined}>{g.label}</h3>,
             <div key={g.key + "-g"} className="slots-grid">

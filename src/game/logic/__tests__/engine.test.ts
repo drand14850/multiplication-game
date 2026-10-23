@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { COLLECTIBLES } from "../collectibles";
 import { GameEngine, type Effect, type EngineCtx } from "../engine";
 import { QUESTS, type QuestId } from "../quests";
-import { pickOptions, rollElement } from "../rewards";
+import { pickOptions, rollElement, rollMystery } from "../rewards";
 import { seededRng } from "../rng";
 
 function makeEngine(seed = 1, day = "2026-10-15") {
@@ -213,6 +213,27 @@ describe("quests", () => {
       expect(q.len).toBeLessThanOrEqual(10);
     });
     expect(QUESTS.find((q) => q.id === "diamond")!.len).toBe(max);
+  });
+});
+
+describe("Greek Myths quest", () => {
+  it("is 9 in a row and wins a Greek myth creature he doesn't have yet", () => {
+    const { engine: e } = makeEngine(31);
+    const mine = COLLECTIBLES.filter((c) => c.group === "myth").slice(0, 7);
+    mine.forEach((c) => (e.s.caught[c.id] = 1));                   // only Medusa is missing
+    const fx = winQuest(e, "myth");
+    expect(fx.filter((f) => f.type === "attempt")).toHaveLength(9);
+    const r = e.s.reward!;
+    expect(r.kind === "prize" && r.prizeId).toBe("myth-medusa");
+    expect(r.title).toBe("Greek Myths Quest beaten!");
+  });
+
+  it("the Mystery Box can give a myth creature too", () => {
+    const seen = new Set<string>();
+    const rng = seededRng(5);
+    for (let i = 0; i < 3000; i++) seen.add(rollMystery(rng).group);
+    expect(seen.has("myth")).toBe(true);
+    expect(seen.has("animals") || seen.has("rare")).toBe(false);
   });
 });
 

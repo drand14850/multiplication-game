@@ -4,7 +4,7 @@
 // layer to carry out. Function names follow the reference so the two can be read side by side.
 
 import { ALL_RARES, animalId, animalName, isRare, nextAnimal, REFERENCE_RARES } from "./animalBag";
-import { BY_ID, caughtCount, isElementGroup, type Caught } from "./collectibles";
+import { BY_ID, caughtCount, isQuestGroup, type Caught } from "./collectibles";
 import { DELAY, MAX_DIGITS } from "./constants";
 import { factKey, newPicker, pickNextFact, type FactWeight, type PickerState } from "./facts";
 import { addTry, cleanRecent, factWeight, hardestFacts, type Recent } from "./mastery";
@@ -387,7 +387,7 @@ export class GameEngine {
         sub: rareUsed ? "Pick an animal. You already picked a rare one today." : "Pick any animal. You can pick 1 rare animal a day.",
       };
       this.emit({ type: "questEnd", runId: q.runId, result: "won", reached: q.done, rewardId: null });
-    } else if (isElementGroup(def.id)) {
+    } else if (isQuestGroup(def.id)) {
       const prize = rollElement(def.id, s.caught, this.ctx.rng);
       s.reward = { kind: "prize", title, sub: s.caught[prize.id] ? "You won another one!" : "You won a new animal!", prizeId: prize.id };
       s.pendingRewardId = prize.id;

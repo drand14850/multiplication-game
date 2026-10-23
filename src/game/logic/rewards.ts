@@ -1,14 +1,13 @@
-import type { ElementKey } from "../art/elements";
 import { COMMON } from "../art/animals";
 import { REFERENCE_RARES } from "./animalBag";
-import { COLLECTIBLES, isElementGroup, type Caught, type Collectible } from "./collectibles";
+import { COLLECTIBLES, isQuestGroup, type Caught, type Collectible, type Group } from "./collectibles";
 import type { Rng } from "./rng";
 
 /** The reference's Pick-a-Pet grid: 13 regulars + its 5 rares. */
 const REFERENCE_PICKS = COMMON + REFERENCE_RARES;
 
 /** Random animal of the quest's type, favoring ones he doesn't have yet. */
-export function rollElement(key: ElementKey, caught: Caught, rng: Rng): Collectible {
+export function rollElement(key: Group, caught: Caught, rng: Rng): Collectible {
   const pool: Collectible[] = [], fresh: Collectible[] = [];
   COLLECTIBLES.forEach((c) => {
     if (c.group !== key) return;
@@ -19,9 +18,9 @@ export function rollElement(key: ElementKey, caught: Caught, rng: Rng): Collecti
   return from[Math.floor(rng() * from.length)];
 }
 
-/** Mystery Box: any of the 64 element animals, no preference for new ones. */
+/** Mystery Box: any quest animal or creature (elements and Greek myths), no preference for new ones. */
 export function rollMystery(rng: Rng): Collectible {
-  const pool = COLLECTIBLES.filter((c) => isElementGroup(c.group));
+  const pool = COLLECTIBLES.filter((c) => isQuestGroup(c.group));
   return pool[Math.floor(rng() * pool.length)];
 }
 

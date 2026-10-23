@@ -284,6 +284,25 @@ describe("the new rare animals (added later)", () => {
   });
 });
 
+describe("the Greek Myths quest (added later)", () => {
+  it("accepts myth quest runs and creature catches", async () => {
+    const dev = await device();
+    const kid = (await signUp(dev, codeA, "myth_fan", "abcd")).child_id!;
+    const run = uuid();
+    await asUser(db, dev, async (tx) => {
+      await tx.query("insert into quest_runs (id, child_id, quest_id, length, reached, result, reward_id, started_at) values ($1, $2, 'myth', 9, 9, 'won', 'myth-pegasus', now())", [run, kid]);
+      await tx.query("insert into catches (id, child_id, collectible_id, source, quest_run_id, created_at) values ($1, $2, 'myth-pegasus', 'quest', $3, now())", [uuid(), kid, run]);
+      await tx.query("insert into catches (id, child_id, collectible_id, source, created_at) values ($1, $2, 'myth-hydra', 'mystery', now())", [uuid(), kid]);
+    });
+    const bag = await asUser(db, dev, async (tx) => (await tx.query<{ collectible_id: string }>("select collectible_id from backpack order by 1")).rows);
+    expect(bag.map((r) => r.collectible_id)).toEqual(["myth-hydra", "myth-pegasus"]);
+    // a myth creature can't be passed off as a practice catch
+    expect(await failure(asUser(db, dev, (tx) => tx.query(
+      "insert into catches (id, child_id, collectible_id, source, created_at) values ($1, $2, 'myth-medusa', 'practice', now())", [uuid(), kid]))))
+      .toMatch(/catch_source_mismatch/);
+  });
+});
+
 describe("progress carried over from playing without an account", () => {
   it("'import' catches skip the once-a-day rules", async () => {
     const dev = await device();
