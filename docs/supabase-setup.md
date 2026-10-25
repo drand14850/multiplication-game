@@ -33,7 +33,7 @@ npx supabase db push
 
 ## 3. Auth settings
 
-- **Authentication → Providers → Email**: enabled. Keep "Confirm email" on.
+- **Authentication → Sign In / Providers → Email**: enabled, with **Confirm email off** (since 2026-10-25), so a grown-up signs up with just an email and password and is in straight away, with no email from Supabase. Grown-ups never need a Supabase or Vercel account; those are only for whoever runs the site.
 - **Authentication → URL Configuration**: Site URL is the live site, `https://multiplication-game-six.vercel.app`. Redirect URLs: that address with `/**`, plus `http://localhost:5173/**` for local development.
 - **Authentication → Sign In / Providers → User Signups**: **Allow anonymous sign-ins** on. Kid devices sign in this way and are then linked to one kid by their username and password.
 
@@ -43,7 +43,7 @@ npx supabase db push
 npm run dev
 ```
 
-Create an account, confirm the email, sign in, add a child, and play.
+Create a grown-up account (no email confirmation), add a kid, and play.
 
 ## Optional: demo data for the dashboard (dev only)
 
